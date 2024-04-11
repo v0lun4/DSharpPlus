@@ -157,6 +157,26 @@ public sealed class SlashCommandProcessor : BaseCommandProcessor<InteractionCrea
     public void AddApplicationCommands(params DiscordApplicationCommand[] applicationCommands) => this._applicationCommands.AddRange(applicationCommands);
     public void AddApplicationCommands(IEnumerable<DiscordApplicationCommand> applicationCommands) => this._applicationCommands.AddRange(applicationCommands);
 
+    public async ValueTask DeleteGlobalDiscordSlashCommandAsync(ulong commandID)
+    {
+        if (this._extension is null)
+        {
+            throw new InvalidOperationException("SlashCommandProcessor has not been configured.");
+        }
+
+        await this._extension.Client.DeleteGlobalApplicationCommandAsync(commandID);
+    }
+
+    public async ValueTask DeleteGuildDiscordSlashCommandAsync(ulong guildID, ulong commandID)
+    {
+        if (this._extension is null)
+        {
+            throw new InvalidOperationException("SlashCommandProcessor has not been configured.");
+        }
+
+        await this._extension.Client.DeleteGuildApplicationCommandAsync(guildID, commandID);
+    }
+
     public async ValueTask ClearDiscordSlashCommandsAsync(bool clearGuildCommands = false)
     {
         if (this._extension is null)

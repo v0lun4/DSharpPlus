@@ -59,6 +59,16 @@ public sealed class SlashCommandProcessor : BaseCommandProcessor<InteractionCrea
         }
     }
 
+    //CUSTOM FUNCTION!!! THIS IS HIGHLY EXPERIMENTAL
+    public async ValueTask UpdateCommandsAsync(CommandsExtension extension, DiscordClient client)
+    {
+        await base.ConfigureAsync(extension);
+        if (client.ShardId == 0)
+        {
+            await this.RegisterSlashCommandsAsync(extension);
+        }
+    }
+
     public async Task ExecuteInteractionAsync(DiscordClient client, InteractionCreateEventArgs eventArgs)
     {
         if (this._extension is null)
@@ -157,6 +167,7 @@ public sealed class SlashCommandProcessor : BaseCommandProcessor<InteractionCrea
     public void AddApplicationCommands(params DiscordApplicationCommand[] applicationCommands) => this._applicationCommands.AddRange(applicationCommands);
     public void AddApplicationCommands(IEnumerable<DiscordApplicationCommand> applicationCommands) => this._applicationCommands.AddRange(applicationCommands);
 
+    //CUSTOM FUNCTION!!! THIS IS HIGHLY EXPERIMENTAL
     public async ValueTask DeleteGlobalDiscordSlashCommandAsync(ulong commandID)
     {
         if (this._extension is null)
@@ -167,7 +178,8 @@ public sealed class SlashCommandProcessor : BaseCommandProcessor<InteractionCrea
         await this._extension.Client.DeleteGlobalApplicationCommandAsync(commandID);
     }
 
-    public async ValueTask DeleteGuildDiscordSlashCommandAsync(ulong guildID, ulong commandID)
+    //CUSTOM FUNCTION!!! THIS IS HIGHLY EXPERIMENTAL
+    public async ValueTask DeleteGuildDiscordSlashCommandAsync(ulong guildID, ulong commandID) 
     {
         if (this._extension is null)
         {

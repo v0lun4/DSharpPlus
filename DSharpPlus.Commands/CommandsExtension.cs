@@ -135,6 +135,23 @@ public sealed class CommandsExtension : BaseExtension
         this.AddCheck<TextMessageReplyCheck>();
     }
 
+    public void RemoveCommand(CommandBuilder command)
+    {
+        CommandBuilder? tmp = this._commandBuilders.Where(p => p.Name == command.Name).FirstOrDefault();
+        if (tmp is null)
+        {
+            return;
+        }
+        ((IList<CommandBuilder>)this._commandBuilders).Remove(tmp);
+    }
+
+    public void RemoveCommand(Delegate commandDelegate) => this._commandBuilders.Remove(CommandBuilder.From(commandDelegate)); //CUSTOM FUNCTION!!! THIS IS HIGHLY EXPERIMENTAL
+    //public void RemoveCommands(IEnumerable<CommandBuilder> commands) => this._commandBuilders.RemoveRange(commands); //CUSTOM FUNCTION!!! THIS IS HIGHLY EXPERIMENTAL
+    //public void RemoveCommands(Assembly assembly) => this.RemoveCommands(assembly.GetTypes()); //CUSTOM FUNCTION!!! THIS IS HIGHLY EXPERIMENTAL
+    //public void RemoveCommands(params CommandBuilder[] commands) => this._commandBuilders.RemoveAll(commands); //CUSTOM FUNCTION!!! THIS IS HIGHLY EXPERIMENTAL
+    public void RemoveCommands(Type type) => this._commandBuilders.Remove(CommandBuilder.From(type)); //CUSTOM FUNCTION!!! THIS IS HIGHLY EXPERIMENTAL
+    public void RemoveCommands<T>() => this._commandBuilders.Remove(CommandBuilder.From<T>()); //CUSTOM FUNCTION!!! THIS IS HIGHLY EXPERIMENTAL
+
     public void AddCommand(CommandBuilder command) => this._commandBuilders.Add(command);
     public void AddCommand(Delegate commandDelegate) => this._commandBuilders.Add(CommandBuilder.From(commandDelegate));
     public void AddCommands(IEnumerable<CommandBuilder> commands) => this._commandBuilders.AddRange(commands);
@@ -277,6 +294,33 @@ public sealed class CommandsExtension : BaseExtension
         {
             await processor.ConfigureAsync(this);
         }
+    }
+
+    //CUSTOM FUNCTION!!! THIS IS HIGHLY EXPERIMENTAL
+    public async Task UpdateSlashCommandsAsync()
+    {
+        Dictionary<string, Command> commands = [];
+        foreach (CommandBuilder commandBuilder in this._commandBuilders)
+        {
+            try
+            {
+                Command command = commandBuilder.Build();
+                commands.Add(command.Name, command);
+            }
+            catch (Exception error)
+            {
+                this._logger.LogError(error, "Failed to build command '{CommandBuilder}'", commandBuilder.Name);
+            }
+        }
+
+        this.Commands = commands.ToFrozenDictionary();
+
+        await ((SlashCommandProcessor)this._processors[typeof(SlashCommandProcessor)]).UpdateCommandsAsync(this, this.Client);
+
+        //foreach (ICommandProcessor processor in this._processors.Values)
+        //{
+        //    await processor.ConfigureAsync(this);
+        //}
     }
 
     /// <inheritdoc />

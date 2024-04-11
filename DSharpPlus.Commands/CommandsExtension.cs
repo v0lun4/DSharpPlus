@@ -3,6 +3,7 @@ namespace DSharpPlus.Commands;
 using System;
 using System.Collections.Frozen;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
 using System.Linq.Expressions;
@@ -135,6 +136,7 @@ public sealed class CommandsExtension : BaseExtension
         this.AddCheck<TextMessageReplyCheck>();
     }
 
+    //CUSTOM FUNCTION!!! THIS IS HIGHLY EXPERIMENTAL
     public void RemoveCommand(CommandBuilder command)
     {
         CommandBuilder? tmp = this._commandBuilders.Where(p => p.Name == command.Name).FirstOrDefault();

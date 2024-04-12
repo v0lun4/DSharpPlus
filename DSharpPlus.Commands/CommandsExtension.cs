@@ -136,6 +136,7 @@ public sealed class CommandsExtension : BaseExtension
         this.AddCheck<TextMessageReplyCheck>();
     }
 
+<<<<<<< HEAD
     //CUSTOM FUNCTION!!! THIS IS HIGHLY EXPERIMENTAL
     public void RemoveCommand(CommandBuilder command)
     {
@@ -154,13 +155,16 @@ public sealed class CommandsExtension : BaseExtension
     public void RemoveCommands(Type type) => this._commandBuilders.Remove(CommandBuilder.From(type)); //CUSTOM FUNCTION!!! THIS IS HIGHLY EXPERIMENTAL
     public void RemoveCommands<T>() => this._commandBuilders.Remove(CommandBuilder.From<T>()); //CUSTOM FUNCTION!!! THIS IS HIGHLY EXPERIMENTAL
 
+=======
+    public void AddCommand(Type type) => this._commandBuilders.Add(CommandBuilder.From(type));
+>>>>>>> upstream/master
     public void AddCommand(CommandBuilder command) => this._commandBuilders.Add(command);
     public void AddCommand(Delegate commandDelegate) => this._commandBuilders.Add(CommandBuilder.From(commandDelegate));
     public void AddCommands(IEnumerable<CommandBuilder> commands) => this._commandBuilders.AddRange(commands);
     public void AddCommands(Assembly assembly) => this.AddCommands(assembly.GetTypes());
-    public void AddCommands(params CommandBuilder[] commands) => this._commandBuilders.AddRange(commands);
-    public void AddCommands(Type type) => this._commandBuilders.Add(CommandBuilder.From(type));
+    public void AddCommands(Type type) => this.AddCommands([type]);
     public void AddCommands<T>() => this._commandBuilders.Add(CommandBuilder.From<T>());
+    public void AddCommands(params CommandBuilder[] commands) => this._commandBuilders.AddRange(commands);
     public void AddCommands(IEnumerable<Type> types)
     {
         foreach (Type type in types)

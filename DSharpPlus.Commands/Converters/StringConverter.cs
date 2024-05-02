@@ -1,5 +1,3 @@
-namespace DSharpPlus.Commands.Converters;
-
 using System;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
@@ -10,10 +8,13 @@ using DSharpPlus.Commands.Processors.TextCommands;
 using DSharpPlus.Entities;
 using DSharpPlus.EventArgs;
 
+namespace DSharpPlus.Commands.Converters;
+
 public class StringConverter : ISlashArgumentConverter<string>, ITextArgumentConverter<string>
 {
-    public ApplicationCommandOptionType ParameterType { get; init; } = ApplicationCommandOptionType.String;
-    public bool RequiresText { get; init; } = true;
+    public DiscordApplicationCommandOptionType ParameterType => DiscordApplicationCommandOptionType.String;
+    public string ReadableName => "Text";
+    public bool RequiresText => true;
 
     public Task<Optional<string>> ConvertAsync(TextConverterContext context, MessageCreateEventArgs eventArgs)
     {

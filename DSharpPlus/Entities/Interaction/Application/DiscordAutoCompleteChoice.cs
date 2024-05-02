@@ -1,5 +1,6 @@
 using System;
 using Newtonsoft.Json;
+
 namespace DSharpPlus.Entities;
 
 /// <summary>
@@ -41,7 +42,7 @@ public sealed class DiscordAutoCompleteChoice
             throw new ArgumentException("Application command choice value cannot exceed 100 characters.", nameof(value));
         }
 
-        this.Name = name;
-        this.Value = value;
+        Name = name;
+        Value = value;
     }
 }

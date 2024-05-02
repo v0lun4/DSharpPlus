@@ -22,25 +22,25 @@ public class DiscordForumChannelJsonConverter : JsonConverter
         }
 
         DiscordChannel channel;
-        ChannelType channelType = typeToken.ToObject<ChannelType>();
+        DiscordChannelType channelType = typeToken.ToObject<DiscordChannelType>();
 
-        if (channelType is ChannelType.GuildForum)
+        if (channelType is DiscordChannelType.GuildForum)
         {
             // Type erasure is almost unheard of in C#, but you never know...
-            DiscordForumChannel chn = new DiscordForumChannel();
+            DiscordForumChannel chn = new();
             serializer.Populate(job.CreateReader(), chn);
 
             channel = chn;
         }
         // May or not be necessary. Better safe than sorry.
-        else if (channelType is ChannelType.NewsThread or ChannelType.PrivateThread or ChannelType.PublicThread)
+        else if (channelType is DiscordChannelType.NewsThread or DiscordChannelType.PrivateThread or DiscordChannelType.PublicThread)
         {
-            DiscordThreadChannel chn = new DiscordThreadChannel();
+            DiscordThreadChannel chn = new();
             serializer.Populate(job.CreateReader(), chn);
 
             channel = chn;
         }
-        else if (channelType is ChannelType.Private)
+        else if (channelType is DiscordChannelType.Private)
         {
             channel = new DiscordDmChannel();
             serializer.Populate(job.CreateReader(), channel);

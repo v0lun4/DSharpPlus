@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
+
 namespace DSharpPlus.Entities;
 
 /// <summary>
@@ -10,7 +11,7 @@ namespace DSharpPlus.Entities;
 public sealed class DiscordForumChannel : DiscordChannel
 {
     [JsonProperty("type", NullValueHandling = NullValueHandling.Ignore)]
-    public override ChannelType Type => ChannelType.GuildForum;
+    public override DiscordChannelType Type => DiscordChannelType.GuildForum;
 
     /// <summary>
     /// Gets the topic of the forum. This doubles as the guidelines for the forum.
@@ -29,8 +30,11 @@ public sealed class DiscordForumChannel : DiscordChannel
     /// </summary>
     public IReadOnlyList<DiscordForumTag> AvailableTags => _availableTags;
 
+#pragma warning disable CS0649 // Field is never assigned to, and will always have its default value null
+    // Justification: Used by JSON.NET
     [JsonProperty("available_tags")]
     private readonly List<DiscordForumTag> _availableTags;
+#pragma warning restore CS0649
 
     /// <summary>
     /// The default reaction shown on posts when they are created.
@@ -42,13 +46,13 @@ public sealed class DiscordForumChannel : DiscordChannel
     /// The default sort order of posts in the forum.
     /// </summary>
     [JsonProperty("default_sort_order", NullValueHandling = NullValueHandling.Ignore)]
-    public DefaultSortOrder? DefaultSortOrder { get; internal set; }
+    public DiscordDefaultSortOrder? DefaultSortOrder { get; internal set; }
 
     /// <summary>
-    /// The default layout of posts in the forum. Defaults to <see cref="DefaultForumLayout.ListView"/>
+    /// The default layout of posts in the forum. Defaults to <see cref="DiscordDefaultForumLayout.ListView"/>
     /// </summary>
     [JsonProperty("default_forum_layout", NullValueHandling = NullValueHandling.Ignore)]
-    public DefaultForumLayout? DefaultLayout { get; internal set; }
+    public DiscordDefaultForumLayout? DefaultLayout { get; internal set; }
 
     /// <summary>
     /// Creates a forum post.
@@ -56,7 +60,7 @@ public sealed class DiscordForumChannel : DiscordChannel
     /// <param name="builder">The builder to create the forum post with.</param>
     /// <returns>The starter (the created thread, and the initial message) from creating the post.</returns>
     public async Task<DiscordForumPostStarter> CreateForumPostAsync(ForumPostBuilder builder)
-        => await this.Discord.ApiClient.CreateForumPostAsync(this.Id, builder.Name, builder.Message, builder.AutoArchiveDuration, builder.SlowMode, builder.AppliedTags.Select(t => t.Id));
+        => await Discord.ApiClient.CreateForumPostAsync(Id, builder.Name, builder.Message, builder.AutoArchiveDuration, builder.SlowMode, builder.AppliedTags.Select(t => t.Id));
 
     internal DiscordForumChannel() { }
 }

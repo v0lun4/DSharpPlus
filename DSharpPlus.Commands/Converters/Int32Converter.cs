@@ -1,5 +1,3 @@
-namespace DSharpPlus.Commands.Converters;
-
 using System.Globalization;
 using System.Threading.Tasks;
 using DSharpPlus.Commands.Processors.SlashCommands;
@@ -7,10 +5,13 @@ using DSharpPlus.Commands.Processors.TextCommands;
 using DSharpPlus.Entities;
 using DSharpPlus.EventArgs;
 
+namespace DSharpPlus.Commands.Converters;
+
 public class Int32Converter : ISlashArgumentConverter<int>, ITextArgumentConverter<int>
 {
-    public ApplicationCommandOptionType ParameterType { get; init; } = ApplicationCommandOptionType.Integer;
-    public bool RequiresText { get; init; } = true;
+    public DiscordApplicationCommandOptionType ParameterType => DiscordApplicationCommandOptionType.Integer;
+    public string ReadableName => "Integer";
+    public bool RequiresText => true;
 
     public Task<Optional<int>> ConvertAsync(TextConverterContext context, MessageCreateEventArgs eventArgs) => int.TryParse(context.Argument, CultureInfo.InvariantCulture, out int result)
         ? Task.FromResult(Optional.FromValue(result))

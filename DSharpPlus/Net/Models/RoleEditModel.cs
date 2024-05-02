@@ -12,7 +12,7 @@ public class RoleEditModel : BaseEditModel
     /// <summary>
     /// New role permissions
     /// </summary>
-    public Permissions? Permissions { internal get; set; }
+    public DiscordPermissions? Permissions { internal get; set; }
     /// <summary>
     /// New role color
     /// </summary>
@@ -38,10 +38,10 @@ public class RoleEditModel : BaseEditModel
 
     internal RoleEditModel()
     {
-        this.Name = null;
-        this.Permissions = null;
-        this.Color = null;
-        this.Hoist = null;
-        this.Mentionable = null;
+        Name = null;
+        Permissions = null;
+        Color = null;
+        Hoist = null;
+        Mentionable = null;
     }
 }

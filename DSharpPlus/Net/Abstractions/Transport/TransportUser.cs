@@ -1,3 +1,4 @@
+using DSharpPlus.Entities;
 using Newtonsoft.Json;
 
 namespace DSharpPlus.Net.Abstractions;
@@ -38,35 +39,35 @@ internal class TransportUser
     public string Email { get; internal set; }
 
     [JsonProperty("premium_type", NullValueHandling = NullValueHandling.Ignore)]
-    public PremiumType? PremiumType { get; internal set; }
+    public DiscordPremiumType? PremiumType { get; internal set; }
 
     [JsonProperty("locale", NullValueHandling = NullValueHandling.Ignore)]
     public string Locale { get; internal set; }
 
     [JsonProperty("flags", NullValueHandling = NullValueHandling.Ignore)]
-    public UserFlags? OAuthFlags { get; internal set; }
+    public DiscordUserFlags? OAuthFlags { get; internal set; }
 
     [JsonProperty("public_flags", NullValueHandling = NullValueHandling.Ignore)]
-    public UserFlags? Flags { get; internal set; }
+    public DiscordUserFlags? Flags { get; internal set; }
 
     internal TransportUser() { }
 
     internal TransportUser(TransportUser other)
     {
-        this.Id = other.Id;
-        this.Username = other.Username;
-        this.Discriminator = other.Discriminator;
-        this.GlobalDisplayName = other.GlobalDisplayName;
-        this.AvatarHash = other.AvatarHash;
-        this.BannerHash = other.BannerHash;
-        this.BannerColor = other.BannerColor;
-        this.IsBot = other.IsBot;
-        this.MfaEnabled = other.MfaEnabled;
-        this.Verified = other.Verified;
-        this.Email = other.Email;
-        this.PremiumType = other.PremiumType;
-        this.Locale = other.Locale;
-        this.Flags = other.Flags;
-        this.OAuthFlags = other.OAuthFlags;
+        Id = other.Id;
+        Username = other.Username;
+        Discriminator = other.Discriminator;
+        GlobalDisplayName = other.GlobalDisplayName;
+        AvatarHash = other.AvatarHash;
+        BannerHash = other.BannerHash;
+        BannerColor = other.BannerColor;
+        IsBot = other.IsBot;
+        MfaEnabled = other.MfaEnabled;
+        Verified = other.Verified;
+        Email = other.Email;
+        PremiumType = other.PremiumType;
+        Locale = other.Locale;
+        Flags = other.Flags;
+        OAuthFlags = other.OAuthFlags;
     }
 }

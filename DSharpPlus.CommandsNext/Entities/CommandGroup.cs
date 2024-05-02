@@ -19,7 +19,7 @@ public class CommandGroup : Command
     /// <summary>
     /// Gets whether this command is executable without subcommands.
     /// </summary>
-    public bool IsExecutableWithoutSubcommands => this.Overloads.Count > 0;
+    public bool IsExecutableWithoutSubcommands => Overloads.Count > 0;
 
     internal CommandGroup() : base() { }
 
@@ -39,18 +39,18 @@ public class CommandGroup : Command
                 ? (StringComparison.InvariantCulture, StringComparer.InvariantCulture)
                 : (StringComparison.InvariantCultureIgnoreCase, StringComparer.InvariantCultureIgnoreCase);
 
-            Command? cmd = this.Children.FirstOrDefault(xc => xc.Name.Equals(cn, comparison) || xc.Aliases.Contains(cn, comparer));
+            Command? cmd = Children.FirstOrDefault(xc => xc.Name.Equals(cn, comparison) || xc.Aliases.Contains(cn, comparer));
 
             if (cmd is not null)
             {
                 // pass the execution on
-                CommandContext xctx = new CommandContext
+                CommandContext xctx = new()
                 {
                     Client = ctx.Client,
                     Message = ctx.Message,
                     Command = cmd,
                     Config = ctx.Config,
-                    RawArgumentString = ctx.RawArgumentString.Substring(findpos),
+                    RawArgumentString = ctx.RawArgumentString[findpos..],
                     Prefix = ctx.Prefix,
                     CommandsNext = ctx.CommandsNext,
                     Services = ctx.Services
@@ -68,7 +68,7 @@ public class CommandGroup : Command
             }
         }
 
-        return this.IsExecutableWithoutSubcommands
+        return IsExecutableWithoutSubcommands
             ? await base.ExecuteAsync(ctx)
             : new CommandResult
             {

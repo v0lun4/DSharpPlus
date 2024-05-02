@@ -1,5 +1,4 @@
 using System;
-
 using DSharpPlus.AsyncEvents;
 
 namespace DSharpPlus.Lavalink.EventArgs;
@@ -22,7 +21,7 @@ public sealed class NodeDisconnectedEventArgs : AsyncEventArgs
 
     internal NodeDisconnectedEventArgs(LavalinkNodeConnection node, bool isClean)
     {
-        this.LavalinkNode = node;
-        this.IsCleanClose = isClean;
+        LavalinkNode = node;
+        IsCleanClose = isClean;
     }
 }

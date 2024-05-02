@@ -24,23 +24,17 @@ internal sealed class StatusUpdate
     /// Gets or sets the status of the user.
     /// </summary>
     [JsonIgnore]
-    public UserStatus Status { get; set; } = UserStatus.Online;
+    public DiscordUserStatus Status { get; set; } = DiscordUserStatus.Online;
 
     [JsonProperty("status")]
-    internal string StatusString
+    internal string StatusString => Status switch
     {
-        get
-        {
-            return this.Status switch
-            {
-                UserStatus.Online => "online",
-                UserStatus.Idle => "idle",
-                UserStatus.DoNotDisturb => "dnd",
-                UserStatus.Invisible or UserStatus.Offline => "invisible",
-                _ => "online",
-            };
-        }
-    }
+        DiscordUserStatus.Online => "online",
+        DiscordUserStatus.Idle => "idle",
+        DiscordUserStatus.DoNotDisturb => "dnd",
+        DiscordUserStatus.Invisible or DiscordUserStatus.Offline => "invisible",
+        _ => "online",
+    };
 
     /// <summary>
     /// Gets or sets the game the user is playing.

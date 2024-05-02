@@ -1,5 +1,3 @@
-namespace DSharpPlus.Commands.Converters;
-
 using System;
 using System.Globalization;
 using System.Linq;
@@ -10,13 +8,16 @@ using DSharpPlus.Commands.Processors.TextCommands;
 using DSharpPlus.Entities;
 using DSharpPlus.EventArgs;
 
+namespace DSharpPlus.Commands.Converters;
+
 public partial class DiscordChannelConverter : ISlashArgumentConverter<DiscordChannel>, ITextArgumentConverter<DiscordChannel>
 {
     [GeneratedRegex(@"^<#(\d+)>$", RegexOptions.Compiled | RegexOptions.ECMAScript)]
     private static partial Regex _getChannelRegex();
 
-    public ApplicationCommandOptionType ParameterType { get; init; } = ApplicationCommandOptionType.Channel;
-    public bool RequiresText { get; init; } = true;
+    public DiscordApplicationCommandOptionType ParameterType => DiscordApplicationCommandOptionType.Channel;
+    public string ReadableName => "Discord Channel";
+    public bool RequiresText => true;
 
     public Task<Optional<DiscordChannel>> ConvertAsync(TextConverterContext context, MessageCreateEventArgs eventArgs)
     {

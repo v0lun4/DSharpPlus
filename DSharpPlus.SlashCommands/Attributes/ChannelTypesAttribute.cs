@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using DSharpPlus.Entities;
 
 namespace DSharpPlus.SlashCommands;
 
@@ -12,11 +13,11 @@ public class ChannelTypesAttribute : Attribute
     /// <summary>
     /// Allowed channel types.
     /// </summary>
-    public IEnumerable<ChannelType> ChannelTypes { get; }
+    public IEnumerable<DiscordChannelType> ChannelTypes { get; }
 
     /// <summary>
     /// Defines allowed channel types for a channel parameter.
     /// </summary>
     /// <param name="channelTypes">The channel types to allow.</param>
-    public ChannelTypesAttribute(params ChannelType[] channelTypes) => this.ChannelTypes = channelTypes;
+    public ChannelTypesAttribute(params DiscordChannelType[] channelTypes) => ChannelTypes = channelTypes;
 }

@@ -1,5 +1,3 @@
-namespace DSharpPlus.Commands.Converters;
-
 using System;
 using System.Globalization;
 using System.Linq;
@@ -13,16 +11,19 @@ using DSharpPlus.Exceptions;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
+namespace DSharpPlus.Commands.Converters;
+
 public partial class DiscordMemberConverter : ISlashArgumentConverter<DiscordMember>, ITextArgumentConverter<DiscordMember>
 {
     [GeneratedRegex("""^<@!?(\d+?)>$""", RegexOptions.Compiled | RegexOptions.ECMAScript)]
     private static partial Regex _getMemberRegex();
 
-    public ApplicationCommandOptionType ParameterType { get; init; } = ApplicationCommandOptionType.User;
-    public bool RequiresText { get; init; } = true;
+    public DiscordApplicationCommandOptionType ParameterType => DiscordApplicationCommandOptionType.User;
+    public string ReadableName => "Discord Server Member";
+    public bool RequiresText => true;
     private readonly ILogger<DiscordMemberConverter> _logger;
 
-    public DiscordMemberConverter(ILogger<DiscordMemberConverter>? logger = null) => this._logger = logger ?? NullLogger<DiscordMemberConverter>.Instance;
+    public DiscordMemberConverter(ILogger<DiscordMemberConverter>? logger = null) => _logger = logger ?? NullLogger<DiscordMemberConverter>.Instance;
 
     public async Task<Optional<DiscordMember>> ConvertAsync(TextConverterContext context, MessageCreateEventArgs eventArgs)
     {
@@ -49,7 +50,7 @@ public partial class DiscordMemberConverter : ISlashArgumentConverter<DiscordMem
         }
         catch (DiscordException error)
         {
-            this._logger.LogError(error, "Failed to get member from guild.");
+            _logger.LogError(error, "Failed to get member from guild.");
             return Optional.FromNoValue<DiscordMember>();
         }
     }

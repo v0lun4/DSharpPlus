@@ -18,15 +18,12 @@ internal sealed class Sodium : IDisposable
     private byte[] Buffer { get; }
     private ReadOnlyMemory<byte> Key { get; }
 
-    static Sodium()
+    static Sodium() => SupportedModes = new ReadOnlyDictionary<string, EncryptionMode>(new Dictionary<string, EncryptionMode>()
     {
-        SupportedModes = new ReadOnlyDictionary<string, EncryptionMode>(new Dictionary<string, EncryptionMode>()
-        {
-            ["xsalsa20_poly1305_lite"] = EncryptionMode.XSalsa20_Poly1305_Lite,
-            ["xsalsa20_poly1305_suffix"] = EncryptionMode.XSalsa20_Poly1305_Suffix,
-            ["xsalsa20_poly1305"] = EncryptionMode.XSalsa20_Poly1305
-        });
-    }
+        ["xsalsa20_poly1305_lite"] = EncryptionMode.XSalsa20_Poly1305_Lite,
+        ["xsalsa20_poly1305_suffix"] = EncryptionMode.XSalsa20_Poly1305_Suffix,
+        ["xsalsa20_poly1305"] = EncryptionMode.XSalsa20_Poly1305
+    });
 
     public Sodium(ReadOnlyMemory<byte> key)
     {
@@ -35,13 +32,13 @@ internal sealed class Sodium : IDisposable
             throw new ArgumentException($"Invalid Sodium key size. Key needs to have a length of {Interop.SodiumKeySize} bytes.", nameof(key));
         }
 
-        this.Key = key;
+        Key = key;
 
-        this.CSPRNG = RandomNumberGenerator.Create();
-        this.Buffer = new byte[Interop.SodiumNonceSize];
+        CSPRNG = RandomNumberGenerator.Create();
+        Buffer = new byte[Interop.SodiumNonceSize];
     }
 
-    public void GenerateNonce(ReadOnlySpan<byte> rtpHeader, Span<byte> target)
+    public static void GenerateNonce(ReadOnlySpan<byte> rtpHeader, Span<byte> target)
     {
         if (rtpHeader.Length != Rtp.HeaderSize)
         {
@@ -57,7 +54,7 @@ internal sealed class Sodium : IDisposable
         rtpHeader.CopyTo(target);
 
         // Zero rest of the span.
-        Helpers.ZeroFill(target.Slice(rtpHeader.Length));
+        Helpers.ZeroFill(target[rtpHeader.Length..]);
     }
 
     public void GenerateNonce(Span<byte> target)
@@ -67,11 +64,11 @@ internal sealed class Sodium : IDisposable
             throw new ArgumentException($"Invalid nonce buffer size. Target buffer for the nonce needs to have a capacity of {Interop.SodiumNonceSize} bytes.", nameof(target));
         }
 
-        this.CSPRNG.GetBytes(this.Buffer);
-        this.Buffer.AsSpan().CopyTo(target);
+        CSPRNG.GetBytes(Buffer);
+        Buffer.AsSpan().CopyTo(target);
     }
 
-    public void GenerateNonce(uint nonce, Span<byte> target)
+    public static void GenerateNonce(uint nonce, Span<byte> target)
     {
         if (target.Length != Interop.SodiumNonceSize)
         {
@@ -82,10 +79,10 @@ internal sealed class Sodium : IDisposable
         BinaryPrimitives.WriteUInt32BigEndian(target, nonce);
 
         // Zero rest of the buffer.
-        Helpers.ZeroFill(target.Slice(4));
+        Helpers.ZeroFill(target[4..]);
     }
 
-    public void AppendNonce(ReadOnlySpan<byte> nonce, Span<byte> target, EncryptionMode encryptionMode)
+    public static void AppendNonce(ReadOnlySpan<byte> nonce, Span<byte> target, EncryptionMode encryptionMode)
     {
         switch (encryptionMode)
         {
@@ -93,11 +90,11 @@ internal sealed class Sodium : IDisposable
                 return;
 
             case EncryptionMode.XSalsa20_Poly1305_Suffix:
-                nonce.CopyTo(target.Slice(target.Length - 12));
+                nonce.CopyTo(target[^12..]);
                 return;
 
             case EncryptionMode.XSalsa20_Poly1305_Lite:
-                nonce.Slice(0, 4).CopyTo(target.Slice(target.Length - 4));
+                nonce[..4].CopyTo(target[^4..]);
                 return;
 
             default:
@@ -105,7 +102,7 @@ internal sealed class Sodium : IDisposable
         }
     }
 
-    public void GetNonce(ReadOnlySpan<byte> source, Span<byte> target, EncryptionMode encryptionMode)
+    public static void GetNonce(ReadOnlySpan<byte> source, Span<byte> target, EncryptionMode encryptionMode)
     {
         if (target.Length != Interop.SodiumNonceSize)
         {
@@ -115,15 +112,15 @@ internal sealed class Sodium : IDisposable
         switch (encryptionMode)
         {
             case EncryptionMode.XSalsa20_Poly1305:
-                source.Slice(0, 12).CopyTo(target);
+                source[..12].CopyTo(target);
                 return;
 
             case EncryptionMode.XSalsa20_Poly1305_Suffix:
-                source.Slice(source.Length - Interop.SodiumNonceSize).CopyTo(target);
+                source[^Interop.SodiumNonceSize..].CopyTo(target);
                 return;
 
             case EncryptionMode.XSalsa20_Poly1305_Lite:
-                source.Slice(source.Length - 4).CopyTo(target);
+                source[^4..].CopyTo(target);
                 return;
 
             default:
@@ -144,7 +141,7 @@ internal sealed class Sodium : IDisposable
         }
 
         int result;
-        if ((result = Interop.Encrypt(source, target, this.Key.Span, nonce)) != 0)
+        if ((result = Interop.Encrypt(source, target, Key.Span, nonce)) != 0)
         {
             throw new CryptographicException($"Could not encrypt the buffer. Sodium returned code {result}.");
         }
@@ -163,13 +160,13 @@ internal sealed class Sodium : IDisposable
         }
 
         int result;
-        if ((result = Interop.Decrypt(source, target, this.Key.Span, nonce)) != 0)
+        if ((result = Interop.Decrypt(source, target, Key.Span, nonce)) != 0)
         {
             throw new CryptographicException($"Could not decrypt the buffer. Sodium returned code {result}.");
         }
     }
 
-    public void Dispose() => this.CSPRNG.Dispose();
+    public void Dispose() => CSPRNG.Dispose();
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static KeyValuePair<string, EncryptionMode> SelectMode(IEnumerable<string> availableModes)

@@ -3,6 +3,7 @@ using System.Collections.Concurrent;
 using System.Threading;
 using DSharpPlus.Entities;
 using DSharpPlus.EventArgs;
+
 namespace DSharpPlus.Interactivity.EventHandling;
 
 /// <summary>

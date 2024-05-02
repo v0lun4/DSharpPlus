@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using Newtonsoft.Json;
@@ -12,7 +13,7 @@ internal sealed class ClientProperties
     /// <summary>
     /// Gets the client's operating system.
     /// </summary>
-    [JsonProperty("$os")]
+    [JsonProperty("$os"), SuppressMessage("Quality Assurance", "CA1822:Mark members as static", Justification = "This is a JSON-serializable object.")]
     public string OperatingSystem
     {
         get
@@ -31,13 +32,9 @@ internal sealed class ClientProperties
             }
 
             string plat = RuntimeInformation.OSDescription.ToLowerInvariant();
-            if (plat.Contains("freebsd"))
-            {
-                return "freebsd";
-            }
-            else
-            {
-                return plat.Contains("openbsd")
+            return plat.Contains("freebsd")
+                ? "freebsd"
+                : plat.Contains("openbsd")
                     ? "openbsd"
                     : plat.Contains("netbsd")
                                     ? "netbsd"
@@ -48,14 +45,13 @@ internal sealed class ClientProperties
                                                                     : plat.Contains("desktopbsd")
                                                                                     ? "desktopbsd"
                                                                                     : plat.Contains("darwin") ? "osx" : plat.Contains("unix") ? "unix" : "toaster (unknown)";
-            }
         }
     }
 
     /// <summary>
     /// Gets the client's browser.
     /// </summary>
-    [JsonProperty("$browser")]
+    [JsonProperty("$browser"), SuppressMessage("Quality Assurance", "CA1822:Mark members as static", Justification = "This is a JSON-serializable object.")]
     public string Browser
     {
         get
@@ -71,19 +67,19 @@ internal sealed class ClientProperties
     /// </summary>
     [JsonProperty("$device")]
     public string Device
-        => this.Browser;
+        => Browser;
 
     /// <summary>
     /// Gets the client's referrer.
     /// </summary>
-    [JsonProperty("$referrer")]
+    [JsonProperty("$referrer"), SuppressMessage("Quality Assurance", "CA1822:Mark members as static", Justification = "This is a JSON-serializable object.")]
     public string Referrer
         => "";
 
     /// <summary>
     /// Gets the client's referring domain.
     /// </summary>
-    [JsonProperty("$referring_domain")]
+    [JsonProperty("$referring_domain"), SuppressMessage("Quality Assurance", "CA1822:Mark members as static", Justification = "This is a JSON-serializable object.")]
     public string ReferringDomain
         => "";
 }

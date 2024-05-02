@@ -10,7 +10,7 @@ namespace DSharpPlus.Entities;
 /// Represents user status.
 /// </summary>
 [JsonConverter(typeof(UserStatusConverter))]
-public enum UserStatus
+public enum DiscordUserStatus
 {
     /// <summary>
     /// User is offline.
@@ -42,27 +42,27 @@ internal sealed class UserStatusConverter : JsonConverter
 {
     public override void WriteJson(JsonWriter writer, object value, JsonSerializer serializer)
     {
-        if (value is UserStatus status)
+        if (value is DiscordUserStatus status)
         {
             switch (status) // reader.Value can be a string, DateTime or DateTimeOffset (yes, it's weird)
             {
-                case UserStatus.Online:
+                case DiscordUserStatus.Online:
                     writer.WriteValue("online");
                     return;
 
-                case UserStatus.Idle:
+                case DiscordUserStatus.Idle:
                     writer.WriteValue("idle");
                     return;
 
-                case UserStatus.DoNotDisturb:
+                case DiscordUserStatus.DoNotDisturb:
                     writer.WriteValue("dnd");
                     return;
 
-                case UserStatus.Invisible:
+                case DiscordUserStatus.Invisible:
                     writer.WriteValue("invisible");
                     return;
 
-                case UserStatus.Offline:
+                case DiscordUserStatus.Offline:
                 default:
                     writer.WriteValue("offline");
                     return;
@@ -70,21 +70,19 @@ internal sealed class UserStatusConverter : JsonConverter
         }
     }
 
-    public override object ReadJson(JsonReader reader, Type objectType, object existingValue, JsonSerializer serializer)
-    {
+    public override object ReadJson(JsonReader reader, Type objectType, object existingValue, JsonSerializer serializer) =>
         // Active sessions are indicated with an "online", "idle", or "dnd" string per platform. If a user is
         // offline or invisible, the corresponding field is not present.
-        return (reader.Value?.ToString().ToLowerInvariant()) switch // reader.Value can be a string, DateTime or DateTimeOffset (yes, it's weird)
+        (reader.Value?.ToString().ToLowerInvariant()) switch // reader.Value can be a string, DateTime or DateTimeOffset (yes, it's weird)
         {
-            "online" => UserStatus.Online,
-            "idle" => UserStatus.Idle,
-            "dnd" => UserStatus.DoNotDisturb,
-            "invisible" => UserStatus.Invisible,
-            _ => UserStatus.Offline,
+            "online" => DiscordUserStatus.Online,
+            "idle" => DiscordUserStatus.Idle,
+            "dnd" => DiscordUserStatus.DoNotDisturb,
+            "invisible" => DiscordUserStatus.Invisible,
+            _ => DiscordUserStatus.Offline,
         };
-    }
 
-    public override bool CanConvert(Type objectType) => objectType == typeof(UserStatus);
+    public override bool CanConvert(Type objectType) => objectType == typeof(DiscordUserStatus);
 }
 
 /// <summary>
@@ -105,7 +103,7 @@ public sealed class DiscordActivity
     /// <summary>
     /// Gets or sets the activity type.
     /// </summary>
-    public ActivityType ActivityType { get; set; }
+    public DiscordActivityType ActivityType { get; set; }
 
     /// <summary>
     /// Gets the rich presence details, if present.
@@ -120,7 +118,7 @@ public sealed class DiscordActivity
     /// <summary>
     /// Creates a new, empty instance of a <see cref="DiscordActivity"/>.
     /// </summary>
-    public DiscordActivity() => this.ActivityType = ActivityType.Playing;
+    public DiscordActivity() => ActivityType = DiscordActivityType.Playing;
 
     /// <summary>
     /// Creates a new instance of a <see cref="DiscordActivity"/> with specified name.
@@ -128,8 +126,8 @@ public sealed class DiscordActivity
     /// <param name="name">Name of the activity.</param>
     public DiscordActivity(string name)
     {
-        this.Name = name;
-        this.ActivityType = ActivityType.Playing;
+        Name = name;
+        ActivityType = DiscordActivityType.Playing;
     }
 
     /// <summary>
@@ -137,64 +135,63 @@ public sealed class DiscordActivity
     /// </summary>
     /// <param name="name">Name of the activity.</param>
     /// <param name="type">Type of the activity.</param>
-    public DiscordActivity(string name, ActivityType type)
+    public DiscordActivity(string name, DiscordActivityType type)
     {
-        if (type == ActivityType.Custom)
+        if (type == DiscordActivityType.Custom)
         {
-            this.Name = "Custom Status";
-            this.CustomStatus = new DiscordCustomStatus() { Name = name };
-            this.ActivityType = ActivityType.Custom;
+            Name = "Custom Status";
+            CustomStatus = new DiscordCustomStatus() { Name = name };
+            ActivityType = DiscordActivityType.Custom;
         }
         else
         {
-            this.Name = name;
-            this.ActivityType = type;
+            Name = name;
+            ActivityType = type;
         }
 
-
-        this.ActivityType = type;
+        ActivityType = type;
     }
 
-    internal DiscordActivity(TransportActivity rawActivity) => this.UpdateWith(rawActivity);
+    internal DiscordActivity(TransportActivity rawActivity) => UpdateWith(rawActivity);
 
     internal DiscordActivity(DiscordActivity other)
     {
-        this.Name = other.Name;
-        this.ActivityType = other.ActivityType;
-        this.StreamUrl = other.StreamUrl;
+        Name = other.Name;
+        ActivityType = other.ActivityType;
+        StreamUrl = other.StreamUrl;
         if (other.RichPresence != null)
         {
-            this.RichPresence = new DiscordRichPresence(other.RichPresence);
+            RichPresence = new DiscordRichPresence(other.RichPresence);
         }
 
         if (other.CustomStatus != null)
         {
-            this.CustomStatus = new DiscordCustomStatus(other.CustomStatus);
+            CustomStatus = new DiscordCustomStatus(other.CustomStatus);
         }
     }
 
     internal void UpdateWith(TransportActivity rawActivity)
     {
-        this.Name = rawActivity?.Name;
-        this.ActivityType = rawActivity != null ? rawActivity.ActivityType : ActivityType.Playing;
-        this.StreamUrl = rawActivity?.StreamUrl;
+        Name = rawActivity?.Name;
+        ActivityType = rawActivity != null ? rawActivity.ActivityType : DiscordActivityType.Playing;
+        StreamUrl = rawActivity?.StreamUrl;
 
-        if (rawActivity?.IsRichPresence() == true && this.RichPresence != null)
+        if (rawActivity?.IsRichPresence() == true && RichPresence != null)
         {
-            this.RichPresence.UpdateWith(rawActivity);
+            RichPresence.UpdateWith(rawActivity);
         }
         else
         {
-            this.RichPresence = rawActivity?.IsRichPresence() == true ? new DiscordRichPresence(rawActivity) : null;
+            RichPresence = rawActivity?.IsRichPresence() == true ? new DiscordRichPresence(rawActivity) : null;
         }
 
-        if (rawActivity?.IsCustomStatus() == true && this.CustomStatus != null)
+        if (rawActivity?.IsCustomStatus() == true && CustomStatus != null)
         {
-            this.CustomStatus.UpdateWith(rawActivity.State, rawActivity.Emoji);
+            CustomStatus.UpdateWith(rawActivity.State, rawActivity.Emoji);
         }
         else
         {
-            this.CustomStatus = rawActivity?.IsCustomStatus() == true
+            CustomStatus = rawActivity?.IsCustomStatus() == true
             ? new DiscordCustomStatus
             {
                 Name = rawActivity.State,
@@ -224,14 +221,14 @@ public sealed class DiscordCustomStatus
 
     internal DiscordCustomStatus(DiscordCustomStatus other)
     {
-        this.Name = other.Name;
-        this.Emoji = other.Emoji;
+        Name = other.Name;
+        Emoji = other.Emoji;
     }
 
     internal void UpdateWith(string state, DiscordEmoji emoji)
     {
-        this.Name = state;
-        this.Emoji = emoji;
+        Name = state;
+        Emoji = emoji;
     }
 }
 
@@ -327,69 +324,68 @@ public sealed class DiscordRichPresence
 
     internal DiscordRichPresence() { }
 
-    internal DiscordRichPresence(TransportActivity rawGame) => this.UpdateWith(rawGame);
+    internal DiscordRichPresence(TransportActivity rawGame) => UpdateWith(rawGame);
 
     internal DiscordRichPresence(DiscordRichPresence other)
     {
-        this.Details = other.Details;
-        this.State = other.State;
-        this.Application = other.Application;
-        this.Instance = other.Instance;
-        this.LargeImageText = other.LargeImageText;
-        this.SmallImageText = other.SmallImageText;
-        this.LargeImage = other.LargeImage;
-        this.SmallImage = other.SmallImage;
-        this.CurrentPartySize = other.CurrentPartySize;
-        this.MaximumPartySize = other.MaximumPartySize;
-        this.PartyId = other.PartyId;
-        this.StartTimestamp = other.StartTimestamp;
-        this.EndTimestamp = other.EndTimestamp;
-        this.JoinSecret = other.JoinSecret;
-        this.MatchSecret = other.MatchSecret;
-        this.SpectateSecret = other.SpectateSecret;
-        this.Buttons = other.Buttons;
+        Details = other.Details;
+        State = other.State;
+        Application = other.Application;
+        Instance = other.Instance;
+        LargeImageText = other.LargeImageText;
+        SmallImageText = other.SmallImageText;
+        LargeImage = other.LargeImage;
+        SmallImage = other.SmallImage;
+        CurrentPartySize = other.CurrentPartySize;
+        MaximumPartySize = other.MaximumPartySize;
+        PartyId = other.PartyId;
+        StartTimestamp = other.StartTimestamp;
+        EndTimestamp = other.EndTimestamp;
+        JoinSecret = other.JoinSecret;
+        MatchSecret = other.MatchSecret;
+        SpectateSecret = other.SpectateSecret;
+        Buttons = other.Buttons;
     }
 
     internal void UpdateWith(TransportActivity rawGame)
     {
-        this.Details = rawGame?.Details;
-        this.State = rawGame?.State;
-        this.Application = rawGame?.ApplicationId != null ? new DiscordApplication { Id = rawGame.ApplicationId.Value } : null;
-        this.Instance = rawGame?.Instance;
-        this.LargeImageText = rawGame?.Assets?.LargeImageText;
-        this.SmallImageText = rawGame?.Assets?.SmallImageText;
+        Details = rawGame?.Details;
+        State = rawGame?.State;
+        Application = rawGame?.ApplicationId != null ? new DiscordApplication { Id = rawGame.ApplicationId.Value } : null;
+        Instance = rawGame?.Instance;
+        LargeImageText = rawGame?.Assets?.LargeImageText;
+        SmallImageText = rawGame?.Assets?.SmallImageText;
         //this.LargeImage = rawGame?.Assets?.LargeImage != null ? new DiscordApplicationAsset { Application = this.Application, Id = rawGame.Assets.LargeImage.Value, Type = ApplicationAssetType.LargeImage } : null;
         //this.SmallImage = rawGame?.Assets?.SmallImage != null ? new DiscordApplicationAsset { Application = this.Application, Id = rawGame.Assets.SmallImage.Value, Type = ApplicationAssetType.SmallImage } : null;
-        this.CurrentPartySize = rawGame?.Party?.Size?.Current;
-        this.MaximumPartySize = rawGame?.Party?.Size?.Maximum;
+        CurrentPartySize = rawGame?.Party?.Size?.Current;
+        MaximumPartySize = rawGame?.Party?.Size?.Maximum;
         if (rawGame?.Party != null && ulong.TryParse(rawGame.Party.Id, NumberStyles.Number, CultureInfo.InvariantCulture, out ulong partyId))
         {
-            this.PartyId = partyId;
+            PartyId = partyId;
         }
 
-        this.StartTimestamp = rawGame?.Timestamps?.Start;
-        this.EndTimestamp = rawGame?.Timestamps?.End;
-        this.JoinSecret = rawGame?.Secrets?.Join;
-        this.MatchSecret = rawGame?.Secrets?.Match;
-        this.SpectateSecret = rawGame?.Secrets?.Spectate;
-        this.Buttons = rawGame?.Buttons;
+        StartTimestamp = rawGame?.Timestamps?.Start;
+        EndTimestamp = rawGame?.Timestamps?.End;
+        JoinSecret = rawGame?.Secrets?.Join;
+        MatchSecret = rawGame?.Secrets?.Match;
+        SpectateSecret = rawGame?.Secrets?.Spectate;
+        Buttons = rawGame?.Buttons;
 
         string? lid = rawGame?.Assets?.LargeImage;
         if (lid != null)
         {
             if (lid.StartsWith("spotify:"))
             {
-                this.LargeImage = new DiscordSpotifyAsset(lid);
+                LargeImage = new DiscordSpotifyAsset(lid);
             }
-            else if (ulong.TryParse(lid, NumberStyles.Number, CultureInfo.InvariantCulture, out ulong ulid))
+            else if (ulong.TryParse(lid, NumberStyles.Number, CultureInfo.InvariantCulture, out _))
             {
-                this.LargeImage =
-                    new DiscordApplicationAsset
-                    {
-                        Id = lid,
-                        Application = this.Application,
-                        Type = DiscordApplicationAssetType.LargeImage
-                    };
+                LargeImage = new DiscordApplicationAsset
+                {
+                    Id = lid,
+                    Application = Application,
+                    Type = DiscordApplicationAssetType.LargeImage
+                };
             }
         }
 
@@ -398,15 +394,15 @@ public sealed class DiscordRichPresence
         {
             if (sid.StartsWith("spotify:"))
             {
-                this.SmallImage = new DiscordSpotifyAsset(sid);
+                SmallImage = new DiscordSpotifyAsset(sid);
             }
-            else if (ulong.TryParse(sid, NumberStyles.Number, CultureInfo.InvariantCulture, out ulong usid))
+            else if (ulong.TryParse(sid, NumberStyles.Number, CultureInfo.InvariantCulture, out _))
             {
-                this.SmallImage =
+                SmallImage =
                     new DiscordApplicationAsset
                     {
                         Id = sid,
-                        Application = this.Application,
+                        Application = Application,
                         Type = DiscordApplicationAssetType.SmallImage
                     };
             }
@@ -417,7 +413,7 @@ public sealed class DiscordRichPresence
 /// <summary>
 /// Determines the type of a user activity.
 /// </summary>
-public enum ActivityType
+public enum DiscordActivityType
 {
     /// <summary>
     /// Indicates the user is playing a game.

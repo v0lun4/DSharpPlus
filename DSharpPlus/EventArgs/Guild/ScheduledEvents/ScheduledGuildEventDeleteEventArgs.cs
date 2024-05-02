@@ -1,4 +1,5 @@
 using DSharpPlus.Entities;
+
 namespace DSharpPlus.EventArgs;
 
 /// <summary>

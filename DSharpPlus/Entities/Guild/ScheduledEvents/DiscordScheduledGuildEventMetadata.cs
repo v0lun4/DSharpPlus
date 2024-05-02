@@ -1,4 +1,5 @@
 using Newtonsoft.Json;
+
 namespace DSharpPlus.Entities;
 
 /// <summary>
@@ -14,5 +15,5 @@ public sealed class DiscordScheduledGuildEventMetadata
 
     internal DiscordScheduledGuildEventMetadata() { }
 
-    public DiscordScheduledGuildEventMetadata(string location) => this.Location = location;
+    public DiscordScheduledGuildEventMetadata(string location) => Location = location;
 }

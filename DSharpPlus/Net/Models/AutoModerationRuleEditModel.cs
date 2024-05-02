@@ -1,9 +1,7 @@
-namespace DSharpPlus.Net.Models;
-
 using System.Collections.Generic;
-
 using DSharpPlus.Entities;
-using DSharpPlus.Entities.AutoModeration;
+
+namespace DSharpPlus.Net.Models;
 
 public class AutoModerationRuleEditModel : BaseEditModel
 {

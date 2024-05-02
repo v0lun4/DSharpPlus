@@ -15,17 +15,16 @@ internal class DspUdpClient : BaseUdpClient
     private ConnectionEndpoint EndPoint { get; set; }
     private BlockingCollection<byte[]> PacketQueue { get; }
 
-    private Task ReceiverTask { get; set; }
     private CancellationTokenSource TokenSource { get; }
-    private CancellationToken Token => this.TokenSource.Token;
+    private CancellationToken Token => TokenSource.Token;
 
     /// <summary>
     /// Creates a new UDP client instance.
     /// </summary>
     public DspUdpClient()
     {
-        this.PacketQueue = new BlockingCollection<byte[]>();
-        this.TokenSource = new CancellationTokenSource();
+        PacketQueue = [];
+        TokenSource = new CancellationTokenSource();
     }
 
     /// <summary>
@@ -34,9 +33,9 @@ internal class DspUdpClient : BaseUdpClient
     /// <param name="endpoint">Endpoint that the client will be communicating with.</param>
     public override void Setup(ConnectionEndpoint endpoint)
     {
-        this.EndPoint = endpoint;
-        this.Client = new UdpClient();
-        this.ReceiverTask = Task.Run(this.ReceiverLoopAsync, this.Token);
+        EndPoint = endpoint;
+        Client = new UdpClient();
+        _ = Task.Run(ReceiverLoopAsync, Token);
     }
 
     /// <summary>
@@ -46,39 +45,38 @@ internal class DspUdpClient : BaseUdpClient
     /// <param name="dataLength">Length of the datagram.</param>
     /// <returns></returns>
     public override Task SendAsync(byte[] data, int dataLength)
-        => this.Client.SendAsync(data, dataLength, this.EndPoint.Hostname, this.EndPoint.Port);
+        => Client.SendAsync(data, dataLength, EndPoint.Hostname, EndPoint.Port);
 
     /// <summary>
     /// Receives a datagram.
     /// </summary>
     /// <returns>The received bytes.</returns>
-    public override Task<byte[]> ReceiveAsync() => Task.FromResult(this.PacketQueue.Take(this.Token));
-
+    public override Task<byte[]> ReceiveAsync() => Task.FromResult(PacketQueue.Take(Token));
 
     /// <summary>
     /// Closes and disposes the client.
     /// </summary>
     public override void Close()
     {
-        this.TokenSource.Cancel();
+        TokenSource.Cancel();
 #if !NETSTANDARD1_3
         try
-        { this.Client.Close(); }
+        { Client.Close(); }
         catch (Exception) { }
 #endif
 
         // dequeue all the packets
-        this.PacketQueue.Dispose();
+        PacketQueue.Dispose();
     }
 
     private async Task ReceiverLoopAsync()
     {
-        while (!this.Token.IsCancellationRequested)
+        while (!Token.IsCancellationRequested)
         {
             try
             {
-                UdpReceiveResult packet = await this.Client.ReceiveAsync();
-                this.PacketQueue.Add(packet.Buffer);
+                UdpReceiveResult packet = await Client.ReceiveAsync();
+                PacketQueue.Add(packet.Buffer);
             }
             catch (Exception) { }
         }

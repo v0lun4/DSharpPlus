@@ -1,5 +1,3 @@
-namespace DSharpPlus.Commands.Converters;
-
 using System.Globalization;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
@@ -9,13 +7,16 @@ using DSharpPlus.Entities;
 using DSharpPlus.EventArgs;
 using DSharpPlus.Exceptions;
 
+namespace DSharpPlus.Commands.Converters;
+
 public partial class DiscordMessageConverter : ISlashArgumentConverter<DiscordMessage>, ITextArgumentConverter<DiscordMessage>
 {
     [GeneratedRegex(@"\/channels\/(?<guild>(?:\d+|@me))\/(?<channel>\d+)\/(?<message>\d+)\/?", RegexOptions.Compiled | RegexOptions.ECMAScript)]
     private static partial Regex GetMessageRegex();
 
-    public ApplicationCommandOptionType ParameterType { get; init; } = ApplicationCommandOptionType.String;
-    public bool RequiresText { get; init; } = true;
+    public DiscordApplicationCommandOptionType ParameterType => DiscordApplicationCommandOptionType.String;
+    public string ReadableName => "Discord Message Link";
+    public bool RequiresText => true;
 
     public Task<Optional<DiscordMessage>> ConvertAsync(TextConverterContext context, MessageCreateEventArgs eventArgs) => ConvertAsync(context, context.Argument);
     public Task<Optional<DiscordMessage>> ConvertAsync(InteractionConverterContext context, InteractionCreateEventArgs eventArgs) => ConvertAsync(context, context.Argument.RawValue);

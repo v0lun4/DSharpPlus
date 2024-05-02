@@ -1,7 +1,7 @@
-namespace DSharpPlus.Commands.Processors.TextCommands;
-
 using DSharpPlus.Commands.Converters;
 using DSharpPlus.Commands.Processors.TextCommands.Parsing;
+
+namespace DSharpPlus.Commands.Processors.TextCommands;
 
 public record TextConverterContext : ConverterContext
 {
@@ -13,21 +13,21 @@ public record TextConverterContext : ConverterContext
 
     public override bool NextArgument()
     {
-        if (this.NextArgumentIndex >= this.RawArguments.Length || this.NextArgumentIndex == -1)
+        if (NextArgumentIndex >= RawArguments.Length || NextArgumentIndex == -1)
         {
             return false;
         }
 
-        this.CurrentArgumentIndex = this.NextArgumentIndex;
-        int nextTextIndex = this.NextArgumentIndex;
-        string? nextText = this.Splicer(this.Extension, this.RawArguments, ref nextTextIndex);
+        CurrentArgumentIndex = NextArgumentIndex;
+        int nextTextIndex = NextArgumentIndex;
+        string? nextText = Splicer(Extension, RawArguments, ref nextTextIndex);
         if (string.IsNullOrEmpty(nextText))
         {
             base.Argument = string.Empty;
             return false;
         }
 
-        this.NextArgumentIndex = nextTextIndex;
+        NextArgumentIndex = nextTextIndex;
         base.Argument = nextText;
         return true;
     }

@@ -25,6 +25,7 @@ using System;
 using System.Collections.Generic;
 
 namespace DSharpPlus.Entities.AuditLogs;
+
 public sealed class DiscordAuditLogMemberUpdateEntry : DiscordAuditLogEntry
 {
     /// <summary>

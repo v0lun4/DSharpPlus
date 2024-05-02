@@ -22,8 +22,8 @@ public sealed class AsyncEvent<TSender, TArgs> : AsyncEvent
     public AsyncEvent(string name, AsyncEventExceptionHandler<TSender, TArgs> exceptionHandler)
         : base(name)
     {
-        this._handlers = new();
-        this._exceptionHandler = exceptionHandler;
+        _handlers = [];
+        _exceptionHandler = exceptionHandler;
     }
 
     /// <summary>
@@ -32,19 +32,15 @@ public sealed class AsyncEvent<TSender, TArgs> : AsyncEvent
     /// <exception cref="ArgumentNullException">Thrown if the specified handler was null.</exception>
     public void Register(AsyncEventHandler<TSender, TArgs> handler)
     {
-        if (handler is null)
-        {
-            throw new ArgumentNullException(nameof(handler));
-        }
-
-        this._lock.Wait();
+        ArgumentNullException.ThrowIfNull(handler);
+        _lock.Wait();
         try
         {
-            this._handlers.Add(handler);
+            _handlers.Add(handler);
         }
         finally
         {
-            this._lock.Release();
+            _lock.Release();
         }
     }
 
@@ -54,19 +50,15 @@ public sealed class AsyncEvent<TSender, TArgs> : AsyncEvent
     /// <exception cref="ArgumentNullException">Thrown if the specified handler was null.</exception>
     public void Unregister(AsyncEventHandler<TSender, TArgs> handler)
     {
-        if (handler is null)
-        {
-            throw new ArgumentNullException(nameof(handler));
-        }
-
-        this._lock.Wait();
+        ArgumentNullException.ThrowIfNull(handler);
+        _lock.Wait();
         try
         {
-            this._handlers.Remove(handler);
+            _handlers.Remove(handler);
         }
         finally
         {
-            this._lock.Release();
+            _lock.Release();
         }
     }
 
@@ -74,7 +66,7 @@ public sealed class AsyncEvent<TSender, TArgs> : AsyncEvent
     /// Unregisters all handlers from this event.
     /// </summary>
     public void UnregisterAll()
-        => this._handlers = new();
+        => _handlers = [];
 
     /// <summary>
     /// Raises this event, invoking all registered handlers in parallel.
@@ -83,14 +75,14 @@ public sealed class AsyncEvent<TSender, TArgs> : AsyncEvent
     /// <param name="args">The arguments passed to this event.</param>
     public async Task InvokeAsync(TSender sender, TArgs args)
     {
-        if (this._handlers.Count == 0)
+        if (_handlers.Count == 0)
         {
             return;
         }
 
-        await this._lock.WaitAsync();
-        List<AsyncEventHandler<TSender, TArgs>> copiedHandlers = new(this._handlers);
-        this._lock.Release();
+        await _lock.WaitAsync();
+        List<AsyncEventHandler<TSender, TArgs>> copiedHandlers = new(_handlers);
+        _lock.Release();
 
         _ = Task.WhenAll(copiedHandlers.Select(async (handler) =>
         {
@@ -100,7 +92,7 @@ public sealed class AsyncEvent<TSender, TArgs> : AsyncEvent
             }
             catch (Exception ex)
             {
-                this._exceptionHandler?.Invoke(this, ex, handler, sender, args);
+                _exceptionHandler?.Invoke(this, ex, handler, sender, args);
             }
         }));
 

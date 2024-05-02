@@ -7,10 +7,8 @@ using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
-
 using DSharpPlus.Entities;
 using DSharpPlus.Net;
-
 using Microsoft.Extensions.Logging;
 
 namespace DSharpPlus;
@@ -24,18 +22,18 @@ public static partial class Utilities
     /// Gets the version of the library
     /// </summary>
     private static string VersionHeader { get; set; }
-    private static Dictionary<Permissions, string> PermissionStrings { get; set; }
+    private static Dictionary<DiscordPermissions, string> PermissionStrings { get; set; }
 
     internal static UTF8Encoding UTF8 { get; } = new UTF8Encoding(false);
 
     static Utilities()
     {
-        PermissionStrings = new Dictionary<Permissions, string>();
-        Type t = typeof(Permissions);
+        PermissionStrings = [];
+        Type t = typeof(DiscordPermissions);
         TypeInfo ti = t.GetTypeInfo();
-        IEnumerable<Permissions> vals = Enum.GetValues(t).Cast<Permissions>();
+        IEnumerable<DiscordPermissions> vals = Enum.GetValues(t).Cast<DiscordPermissions>();
 
-        foreach (Permissions xv in vals)
+        foreach (DiscordPermissions xv in vals)
         {
             string xsv = xv.ToString();
             MemberInfo? xmv = ti.DeclaredMembers.FirstOrDefault(xm => xm.Name == xsv);
@@ -75,15 +73,12 @@ public static partial class Utilities
 
     internal static string GetFormattedToken(BaseDiscordClient client) => GetFormattedToken(client.Configuration);
 
-    internal static string GetFormattedToken(DiscordConfiguration config)
+    internal static string GetFormattedToken(DiscordConfiguration config) => config.TokenType switch
     {
-        return config.TokenType switch
-        {
-            TokenType.Bearer => $"Bearer {config.Token}",
-            TokenType.Bot => $"Bot {config.Token}",
-            _ => throw new ArgumentException("Invalid token type specified.", nameof(config.Token)),
-        };
-    }
+        TokenType.Bearer => $"Bearer {config.Token}",
+        TokenType.Bot => $"Bot {config.Token}",
+        _ => throw new ArgumentException("Invalid token type specified.", nameof(config)),
+    };
 
     internal static string GetUserAgent()
         => VersionHeader;
@@ -122,7 +117,7 @@ public static partial class Utilities
     {
         Regex regex = UserMentionRegex();
         MatchCollection matches = regex.Matches(message.Content);
-        foreach (Match match in matches)
+        foreach (Match match in matches.Cast<Match>())
         {
             yield return ulong.Parse(match.Groups[1].Value, CultureInfo.InvariantCulture);
         }
@@ -132,7 +127,7 @@ public static partial class Utilities
     {
         Regex regex = RoleMentionRegex();
         MatchCollection matches = regex.Matches(message.Content);
-        foreach (Match match in matches)
+        foreach (Match match in matches.Cast<Match>())
         {
             yield return ulong.Parse(match.Groups[1].Value, CultureInfo.InvariantCulture);
         }
@@ -142,7 +137,7 @@ public static partial class Utilities
     {
         Regex regex = ChannelMentionRegex();
         MatchCollection matches = regex.Matches(message.Content);
-        foreach (Match match in matches)
+        foreach (Match match in matches.Cast<Match>())
         {
             yield return ulong.Parse(match.Groups[1].Value, CultureInfo.InvariantCulture);
         }
@@ -152,7 +147,7 @@ public static partial class Utilities
     {
         Regex regex = EmojiMentionRegex();
         MatchCollection matches = regex.Matches(message.Content);
-        foreach (Match match in matches)
+        foreach (Match match in matches.Cast<Match>())
         {
             yield return ulong.Parse(match.Groups[2].Value, CultureInfo.InvariantCulture);
         }
@@ -176,15 +171,15 @@ public static partial class Utilities
     internal static bool IsTextableChannel(DiscordChannel channel)
         => channel.Type switch
         {
-            ChannelType.Text => true,
-            ChannelType.Voice => true,
-            ChannelType.Group => true,
-            ChannelType.Private => true,
-            ChannelType.PublicThread => true,
-            ChannelType.PrivateThread => true,
-            ChannelType.NewsThread => true,
-            ChannelType.News => true,
-            ChannelType.Stage => true,
+            DiscordChannelType.Text => true,
+            DiscordChannelType.Voice => true,
+            DiscordChannelType.Group => true,
+            DiscordChannelType.Private => true,
+            DiscordChannelType.PublicThread => true,
+            DiscordChannelType.PrivateThread => true,
+            DiscordChannelType.NewsThread => true,
+            DiscordChannelType.News => true,
+            DiscordChannelType.Stage => true,
             _ => false,
         };
 
@@ -262,13 +257,13 @@ public static partial class Utilities
         => DiscordClient._discordEpoch.AddMilliseconds(snowflake >> 22);
 
     /// <summary>
-    /// Converts this <see cref="Permissions"/> into human-readable format.
+    /// Converts this <see cref="DiscordPermissions"/> into human-readable format.
     /// </summary>
     /// <param name="perm">Permissions enumeration to convert.</param>
     /// <returns>Human-readable permissions.</returns>
-    public static string ToPermissionString(this Permissions perm)
+    public static string ToPermissionString(this DiscordPermissions perm)
     {
-        if (perm == Permissions.None)
+        if (perm == DiscordPermissions.None)
         {
             return PermissionStrings[perm];
         }
@@ -276,7 +271,7 @@ public static partial class Utilities
         perm &= PermissionMethods.FULL_PERMS;
 
         IEnumerable<string> strs = PermissionStrings
-            .Where(xkvp => xkvp.Key != Permissions.None && (perm & xkvp.Key) == xkvp.Key)
+            .Where(xkvp => xkvp.Key != DiscordPermissions.None && (perm & xkvp.Key) == xkvp.Key)
             .Select(xkvp => xkvp.Value);
 
         return string.Join(", ", strs.OrderBy(xs => xs));
@@ -303,23 +298,31 @@ public static partial class Utilities
 
     internal static void LogTaskFault(this Task task, ILogger logger, LogLevel level, EventId eventId, string message)
     {
-        if (task == null)
-        {
-            throw new ArgumentNullException(nameof(task));
-        }
-
+        ArgumentNullException.ThrowIfNull(task);
         if (logger == null)
         {
             return;
         }
 
-        task.ContinueWith(t => logger.Log(level, eventId, t.Exception, message), TaskContinuationOptions.OnlyOnFaulted);
+        task.ContinueWith(t => logger.Log(level, eventId, t.Exception, "{Message}", message), TaskContinuationOptions.OnlyOnFaulted);
     }
 
     internal static void Deconstruct<TKey, TValue>(this KeyValuePair<TKey, TValue> kvp, out TKey key, out TValue value)
     {
         key = kvp.Key;
         value = kvp.Value;
+    }
+
+    /// <summary>
+    /// Creates a snowflake from a given <see cref="DateTimeOffset"/>. This can be used to provide "timestamps" for methods
+    /// like <see cref="DiscordChannel.GetMessagesAfterAsync"/>.
+    /// </summary>
+    /// <param name="dateTimeOffset">DateTimeOffset to create a snowflake from.</param>
+    /// <returns>Returns a snowflake representing the given date and time.</returns>
+    public static ulong CreateSnowflake(DateTimeOffset dateTimeOffset)
+    {
+        long diff = dateTimeOffset.ToUnixTimeMilliseconds() - DiscordClient._discordEpoch.ToUnixTimeMilliseconds();
+        return (ulong)diff << 22;
     }
 
     [GeneratedRegex("<@(\\d+)>", RegexOptions.ECMAScript)]

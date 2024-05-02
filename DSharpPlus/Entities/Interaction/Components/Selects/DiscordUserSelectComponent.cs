@@ -9,8 +9,8 @@ namespace DSharpPlus.Entities;
 public sealed class DiscordUserSelectComponent : BaseDiscordSelectComponent
 {
     [JsonProperty("default_values", NullValueHandling = NullValueHandling.Ignore)]
-    private List<DiscordSelectDefaultValue> _defaultValues = new();
-    
+    private readonly List<DiscordSelectDefaultValue> _defaultValues = [];
+
     /// <summary>
     /// The default values for this component.
     /// </summary>
@@ -75,7 +75,7 @@ public sealed class DiscordUserSelectComponent : BaseDiscordSelectComponent
     /// <returns>The current component.</returns>
     public DiscordUserSelectComponent Enable()
     {
-        this.Disabled = false;
+        Disabled = false;
         return this;
     }
 
@@ -85,11 +85,11 @@ public sealed class DiscordUserSelectComponent : BaseDiscordSelectComponent
     /// <returns>The current component.</returns>
     public DiscordUserSelectComponent Disable()
     {
-        this.Disabled = true;
+        Disabled = true;
         return this;
     }
 
-    internal DiscordUserSelectComponent() => this.Type = ComponentType.UserSelect;
+    internal DiscordUserSelectComponent() => Type = DiscordComponentType.UserSelect;
 
     /// <summary>
     /// Creates a new user select component.
@@ -100,5 +100,5 @@ public sealed class DiscordUserSelectComponent : BaseDiscordSelectComponent
     /// <param name="minOptions">The minimum amount of options to be selected.</param>
     /// <param name="maxOptions">The maximum amount of options to be selected, up to 25.</param>
     public DiscordUserSelectComponent(string customId, string placeholder, bool disabled = false, int minOptions = 1, int maxOptions = 1)
-    : base(ComponentType.UserSelect, customId, placeholder, disabled, minOptions, maxOptions) { }
+    : base(DiscordComponentType.UserSelect, customId, placeholder, disabled, minOptions, maxOptions) { }
 }

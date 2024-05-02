@@ -8,6 +8,7 @@ using System.Runtime.ExceptionServices;
 using System.Threading;
 using System.Threading.Tasks;
 using DSharpPlus.Commands.ContextChecks;
+using DSharpPlus.Commands.ContextChecks.ParameterChecks;
 using DSharpPlus.Commands.EventArgs;
 using DSharpPlus.Commands.Exceptions;
 using DSharpPlus.Commands.Invocation;
@@ -54,6 +55,20 @@ public class DefaultCommandExecutor : ICommandExecutor
             {
                 Context = context,
                 Exception = new ChecksFailedException(failedChecks, context.Command),
+                CommandObject = null
+            });
+
+            return;
+        }
+
+        IReadOnlyList<ParameterCheckFailedData> failedParameterChecks = await ExecuteParameterChecksAsync(context);
+
+        if (failedParameterChecks.Count > 0)
+        {
+            await InvokeCommandErroredEventAsync(context.Extension, new CommandErroredEventArgs()
+            {
+                Context = context,
+                Exception = new ParameterChecksFailedException(failedParameterChecks, context.Command),
                 CommandObject = null
             });
 
@@ -236,6 +251,62 @@ public class DefaultCommandExecutor : ICommandExecutor
         return failedChecks;
     }
 
+    public virtual async ValueTask<IReadOnlyList<ParameterCheckFailedData>> ExecuteParameterChecksAsync(CommandContext context)
+    {
+        List<ParameterCheckFailedData> failedChecks = [];
+
+        // iterate over all parameters and their attributes.
+        foreach (CommandParameter parameter in context.Command.Parameters)
+        {
+            foreach (ParameterCheckAttribute checkAttribute in parameter.Attributes.OfType<ParameterCheckAttribute>())
+            {
+                ParameterCheckInfo info = new(parameter, context.Arguments[parameter]);
+
+                // execute each check, skipping over non-matching ones
+                foreach (ParameterCheckMapEntry entry in context.Extension.ParameterChecks)
+                {
+                    if (entry.AttributeType != checkAttribute.GetType())
+                    {
+                        continue;
+                    }
+
+                    try
+                    {
+                        // create the check instance
+                        object check = ActivatorUtilities.CreateInstance(context.ServiceProvider, entry.CheckType);
+
+                        // execute the check
+                        string? result = await entry.ExecuteCheckAsync(check, checkAttribute, info, context);
+
+                        // it failed, add it to the list and continue with the others
+                        if (result is not null)
+                        {
+                            failedChecks.Add(new()
+                            {
+                                ParameterCheckAttribute = checkAttribute,
+                                ErrorMessage = result
+                            });
+
+                            continue;
+                        }
+                    }
+                    // if an error occurred, add it to the list and continue, making sure to set the error message.
+                    catch (Exception error)
+                    {
+                        failedChecks.Add(new()
+                        {
+                            ParameterCheckAttribute = checkAttribute,
+                            ErrorMessage = error.Message,
+                            Exception = error
+                        });
+                    }
+                }
+            }
+        }
+
+        return failedChecks;
+    }
+
     /// <summary>
     /// This method will execute the command provided without any safety checks, context checks or event invocation.
     /// </summary>
@@ -256,10 +327,10 @@ public class DefaultCommandExecutor : ICommandExecutor
             }
 
             // Grab the method that wraps Task/ValueTask execution.
-            if (!this._commandWrappers.TryGetValue(context.Command.Id, out Func<object?, object?[], ValueTask>? wrapper))
+            if (!_commandWrappers.TryGetValue(context.Command.Id, out Func<object?, object?[], ValueTask>? wrapper))
             {
                 wrapper = CommandEmitUtil.GetCommandInvocationFunc(context.Command.Method, context.Command.Target);
-                this._commandWrappers[context.Command.Id] = wrapper;
+                _commandWrappers[context.Command.Id] = wrapper;
             }
 
             // Execute the command and return the result.
@@ -285,7 +356,6 @@ public class DefaultCommandExecutor : ICommandExecutor
     /// <param name="eventArgs">The event arguments to pass to the event.</param>
     protected virtual async ValueTask InvokeCommandErroredEventAsync(CommandsExtension extension, CommandErroredEventArgs eventArgs)
         => await extension._commandErrored.InvokeAsync(extension, eventArgs);
-
 
     /// <summary>
     /// Invokes the <see cref="CommandsExtension.CommandExecuted"/> event, which isn't normally exposed to the public API.

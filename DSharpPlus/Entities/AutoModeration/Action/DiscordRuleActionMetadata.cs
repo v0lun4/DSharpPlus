@@ -1,8 +1,7 @@
-namespace DSharpPlus.Entities;
-
 using System;
-
 using Newtonsoft.Json;
+
+namespace DSharpPlus.Entities;
 
 /// <summary>
 /// Represents a Discord rule action metadata.
@@ -19,7 +18,7 @@ public class DiscordRuleActionMetadata
     /// Gets the timeout duration in seconds.
     /// </summary>
     [JsonIgnore]
-    public TimeSpan TimeoutSeconds => TimeSpan.FromSeconds(this.DurationSeconds);
+    public TimeSpan TimeoutSeconds => TimeSpan.FromSeconds(DurationSeconds);
 
     /// Gets the timeout duration in seconds.
     /// <summary>

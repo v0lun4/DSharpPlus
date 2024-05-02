@@ -23,6 +23,7 @@
 
 namespace DSharpPlus.Entities.AuditLogs;
 
+
 public sealed class DiscordAuditLogGuildScheduledEventEntry : DiscordAuditLogEntry
 {
     /// <summary>
@@ -48,7 +49,7 @@ public sealed class DiscordAuditLogGuildScheduledEventEntry : DiscordAuditLogEnt
     /// <summary>
     /// Gets the change of type for the event.
     /// </summary>
-    public PropertyChange<ScheduledGuildEventType?> Type { get; internal set; }
+    public PropertyChange<DiscordScheduledGuildEventType?> Type { get; internal set; }
 
     /// <summary>
     /// Gets the change in image hash.
@@ -63,12 +64,12 @@ public sealed class DiscordAuditLogGuildScheduledEventEntry : DiscordAuditLogEnt
     /// <summary>
     /// Gets change in privacy level.
     /// </summary>
-    public PropertyChange<ScheduledGuildEventPrivacyLevel?> PrivacyLevel { get; internal set; }
+    public PropertyChange<DiscordScheduledGuildEventPrivacyLevel?> PrivacyLevel { get; internal set; }
 
     /// <summary>
     /// Gets the change in status.
     /// </summary>
-    public PropertyChange<ScheduledGuildEventStatus?> Status { get; internal set; }
+    public PropertyChange<DiscordScheduledGuildEventStatus?> Status { get; internal set; }
 
     public DiscordAuditLogGuildScheduledEventEntry() { }
 }

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+
 namespace DSharpPlus.Entities;
 
 /// <summary>
@@ -30,7 +31,7 @@ public class ForumPostBuilder
     /// <summary>
     /// When to automatically archive the post.
     /// </summary>
-    public AutoArchiveDuration? AutoArchiveDuration { get; set; }
+    public DiscordAutoArchiveDuration? AutoArchiveDuration { get; set; }
 
     /// <summary>
     /// Creates a new forum post builder.
@@ -44,7 +45,7 @@ public class ForumPostBuilder
     /// <returns>The builder to chain calls with</returns>
     public ForumPostBuilder WithName(string name)
     {
-        this.Name = name;
+        Name = name;
         return this;
     }
 
@@ -55,7 +56,7 @@ public class ForumPostBuilder
     /// <returns></returns>
     public ForumPostBuilder WithSlowMode(int slowMode)
     {
-        this.SlowMode = slowMode;
+        SlowMode = slowMode;
         return this;
     }
 
@@ -66,7 +67,7 @@ public class ForumPostBuilder
     /// <returns>The builder to chain calls with.</returns>
     public ForumPostBuilder WithSlowMode(TimeSpan slowMode)
     {
-        this.SlowMode = (int)slowMode.TotalSeconds;
+        SlowMode = (int)slowMode.TotalSeconds;
         return this;
     }
 
@@ -77,7 +78,7 @@ public class ForumPostBuilder
     /// <returns>The builder to chain calls with.</returns>
     public ForumPostBuilder WithMessage(DiscordMessageBuilder message)
     {
-        this.Message = message;
+        Message = message;
         return this;
     }
 
@@ -86,9 +87,9 @@ public class ForumPostBuilder
     /// </summary>
     /// <param name="autoArchiveDuration">The duration in which the post will automatically archive</param>
     /// <returns>The builder to chain calls with</returns>
-    public ForumPostBuilder WithAutoArchiveDuration(AutoArchiveDuration autoArchiveDuration)
+    public ForumPostBuilder WithAutoArchiveDuration(DiscordAutoArchiveDuration autoArchiveDuration)
     {
-        this.AutoArchiveDuration = autoArchiveDuration;
+        AutoArchiveDuration = autoArchiveDuration;
         return this;
     }
 
@@ -99,7 +100,7 @@ public class ForumPostBuilder
     /// <returns>The builder to chain calls with.</returns>
     public ForumPostBuilder AddTag(DiscordForumTag tag)
     {
-        ((List<DiscordForumTag>)this.AppliedTags).Add(tag);
+        ((List<DiscordForumTag>)AppliedTags).Add(tag);
         return this;
     }
 
@@ -110,7 +111,7 @@ public class ForumPostBuilder
     /// <returns>The builder to chain calls with.</returns>
     public ForumPostBuilder AddTags(IEnumerable<DiscordForumTag> tags)
     {
-        ((List<DiscordForumTag>)this.AppliedTags).AddRange(tags);
+        ((List<DiscordForumTag>)AppliedTags).AddRange(tags);
         return this;
     }
 
@@ -121,7 +122,7 @@ public class ForumPostBuilder
     /// <returns></returns>
     public ForumPostBuilder RemoveTag(DiscordForumTag tag)
     {
-        ((List<DiscordForumTag>)this.AppliedTags).Remove(tag);
+        ((List<DiscordForumTag>)AppliedTags).Remove(tag);
         return this;
     }
 }

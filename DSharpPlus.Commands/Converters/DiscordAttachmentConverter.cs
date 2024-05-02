@@ -1,5 +1,3 @@
-namespace DSharpPlus.Commands.Converters;
-
 using System.Globalization;
 using System.Linq;
 using System.Threading.Tasks;
@@ -9,10 +7,13 @@ using DSharpPlus.Commands.Processors.TextCommands.ContextChecks;
 using DSharpPlus.Entities;
 using DSharpPlus.EventArgs;
 
+namespace DSharpPlus.Commands.Converters;
+
 public class AttachmentConverter : ISlashArgumentConverter<DiscordAttachment>, ITextArgumentConverter<DiscordAttachment>
 {
-    public ApplicationCommandOptionType ParameterType { get; init; } = ApplicationCommandOptionType.Attachment;
-    public bool RequiresText { get; init; }
+    public DiscordApplicationCommandOptionType ParameterType => DiscordApplicationCommandOptionType.Attachment;
+    public string ReadableName => "Discord File";
+    public bool RequiresText => false;
 
     public Task<Optional<DiscordAttachment>> ConvertAsync(TextConverterContext context, MessageCreateEventArgs eventArgs)
     {
@@ -44,7 +45,7 @@ public class AttachmentConverter : ISlashArgumentConverter<DiscordAttachment>, I
             // Resolved can be null on autocomplete contexts
             return Task.FromResult(Optional.FromNoValue<DiscordAttachment>());
         }
-        else if (eventArgs.Interaction.Data.Options.Count(argument => argument.Type == ApplicationCommandOptionType.Attachment) < currentAttachmentArgumentIndex)
+        else if (eventArgs.Interaction.Data.Options.Count(argument => argument.Type == DiscordApplicationCommandOptionType.Attachment) < currentAttachmentArgumentIndex)
         {
             // Too many parameters, not enough attachments
             return Task.FromResult(Optional.FromNoValue<DiscordAttachment>());

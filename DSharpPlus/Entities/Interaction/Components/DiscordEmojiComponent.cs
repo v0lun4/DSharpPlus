@@ -1,5 +1,6 @@
 using System;
 using Newtonsoft.Json;
+
 namespace DSharpPlus.Entities;
 
 /// <summary>
@@ -28,7 +29,7 @@ public sealed class DiscordComponentEmoji
     /// Constructs a new component emoji from an emoji Id.
     /// </summary>
     /// <param name="id">The Id of the emoji to use. Any valid emoji Id can be passed.</param>
-    public DiscordComponentEmoji(ulong id) => this.Id = id;
+    public DiscordComponentEmoji(ulong id) => Id = id;
 
     /// <summary>
     /// Constructs a new component emoji from unicode.
@@ -41,7 +42,7 @@ public sealed class DiscordComponentEmoji
             throw new ArgumentException("Only unicode emojis can be passed.");
         }
 
-        this.Name = name;
+        Name = name;
     }
 
     /// <summary>
@@ -50,7 +51,7 @@ public sealed class DiscordComponentEmoji
     /// <param name="emoji">The emoji to use.</param>
     public DiscordComponentEmoji(DiscordEmoji emoji)
     {
-        this.Id = emoji.Id;
-        this.Name = emoji.Name; // Name is ignored if the Id is present. //
+        Id = emoji.Id;
+        Name = emoji.Name; // Name is ignored if the Id is present. //
     }
 }

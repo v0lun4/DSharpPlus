@@ -19,7 +19,7 @@ public sealed class DiscordInteractionDataOption
     /// Gets the type of this interaction parameter.
     /// </summary>
     [JsonProperty("type")]
-    public ApplicationCommandOptionType Type { get; internal set; }
+    public DiscordApplicationCommandOptionType Type { get; internal set; }
 
     /// <summary>
     /// If this is an autocomplete option: Whether this option is currently active.
@@ -35,18 +35,18 @@ public sealed class DiscordInteractionDataOption
     /// <para>This can be cast to a <see langword="long"/>, <see langword="bool"></see>, <see langword="string"></see>, <see langword="double"></see> or <see langword="ulong"/> depending on the <see cref="Type"/></para>
     /// </summary>
     [JsonIgnore]
-    public object Value => this.Type switch
+    public object Value => Type switch
     {
-        ApplicationCommandOptionType.Boolean => bool.Parse(this.RawValue),
-        ApplicationCommandOptionType.Integer => long.Parse(this.RawValue),
-        ApplicationCommandOptionType.String => this.RawValue,
-        ApplicationCommandOptionType.Channel => ulong.Parse(this.RawValue),
-        ApplicationCommandOptionType.User => ulong.Parse(this.RawValue),
-        ApplicationCommandOptionType.Role => ulong.Parse(this.RawValue),
-        ApplicationCommandOptionType.Mentionable => ulong.Parse(this.RawValue),
-        ApplicationCommandOptionType.Number => double.Parse(this.RawValue, CultureInfo.InvariantCulture),
-        ApplicationCommandOptionType.Attachment => ulong.Parse(this.RawValue, CultureInfo.InvariantCulture),
-        _ => this.RawValue,
+        DiscordApplicationCommandOptionType.Boolean => bool.Parse(RawValue),
+        DiscordApplicationCommandOptionType.Integer => long.Parse(RawValue),
+        DiscordApplicationCommandOptionType.String => RawValue,
+        DiscordApplicationCommandOptionType.Channel => ulong.Parse(RawValue),
+        DiscordApplicationCommandOptionType.User => ulong.Parse(RawValue),
+        DiscordApplicationCommandOptionType.Role => ulong.Parse(RawValue),
+        DiscordApplicationCommandOptionType.Mentionable => ulong.Parse(RawValue),
+        DiscordApplicationCommandOptionType.Number => double.Parse(RawValue, CultureInfo.InvariantCulture),
+        DiscordApplicationCommandOptionType.Attachment => ulong.Parse(RawValue, CultureInfo.InvariantCulture),
+        _ => RawValue,
     };
 
     /// <summary>

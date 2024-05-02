@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using DSharpPlus.Entities;
+
 namespace DSharpPlus.EventArgs;
 
 /// <summary>

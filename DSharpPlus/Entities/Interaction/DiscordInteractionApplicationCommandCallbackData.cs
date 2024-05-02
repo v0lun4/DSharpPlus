@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using DSharpPlus.Net.Abstractions;
 using Newtonsoft.Json;
 
 namespace DSharpPlus.Entities;
@@ -24,11 +25,14 @@ internal class DiscordInteractionApplicationCommandCallbackData
     public DiscordMentions Mentions { get; internal set; }
 
     [JsonProperty("flags", NullValueHandling = NullValueHandling.Ignore)]
-    public MessageFlags? Flags { get; internal set; }
+    public DiscordMessageFlags? Flags { get; internal set; }
 
     [JsonProperty("components", NullValueHandling = NullValueHandling.Ignore)]
     public IReadOnlyCollection<DiscordActionRowComponent> Components { get; internal set; }
 
     [JsonProperty("choices")]
     public IReadOnlyCollection<DiscordAutoCompleteChoice> Choices { get; internal set; }
+
+    [JsonProperty("poll", NullValueHandling = NullValueHandling.Ignore)]
+    public PollCreatePayload? Poll { get; internal set; }
 }

@@ -26,13 +26,13 @@ internal sealed class ShardInfoConverter : JsonConverter
     public override void WriteJson(JsonWriter writer, object value, JsonSerializer serializer)
     {
         ShardInfo? sinfo = value as ShardInfo;
-        object[] obj = new object[] { sinfo.ShardId, sinfo.ShardCount };
+        object[] obj = [sinfo.ShardId, sinfo.ShardCount];
         serializer.Serialize(writer, obj);
     }
 
     public override object ReadJson(JsonReader reader, Type objectType, object existingValue, JsonSerializer serializer)
     {
-        JArray arr = this.ReadArrayObject(reader, serializer);
+        JArray arr = ReadArrayObject(reader, serializer);
         return new ShardInfo
         {
             ShardId = (int)arr[0],
@@ -40,12 +40,9 @@ internal sealed class ShardInfoConverter : JsonConverter
         };
     }
 
-    private JArray ReadArrayObject(JsonReader reader, JsonSerializer serializer)
-    {
-        return serializer.Deserialize<JToken>(reader) is not JArray arr || arr.Count != 2
+    private static JArray ReadArrayObject(JsonReader reader, JsonSerializer serializer) => serializer.Deserialize<JToken>(reader) is not JArray arr || arr.Count != 2
             ? throw new JsonSerializationException("Expected array of length 2")
             : arr;
-    }
 
     public override bool CanConvert(Type objectType) => objectType == typeof(ShardInfo);
 }

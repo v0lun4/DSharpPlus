@@ -1,5 +1,6 @@
 namespace DSharpPlus.Entities.AuditLogs;
 
+
 public sealed class DiscordAuditLogRoleUpdateEntry : DiscordAuditLogEntry
 {
     /// <summary>
@@ -20,7 +21,7 @@ public sealed class DiscordAuditLogRoleUpdateEntry : DiscordAuditLogEntry
     /// <summary>
     /// Gets the description of role's permission set change.
     /// </summary>
-    public PropertyChange<Permissions?> PermissionChange { get; internal set; }
+    public PropertyChange<DiscordPermissions?> PermissionChange { get; internal set; }
 
     /// <summary>
     /// Gets the description of the role's position change.

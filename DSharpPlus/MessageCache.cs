@@ -2,6 +2,7 @@ using DSharpPlus.Entities;
 using Microsoft.Extensions.Caching.Memory;
 
 namespace DSharpPlus;
+
 internal class MessageCache : IMessageCacheProvider
 {
     private readonly MemoryCache _cache;

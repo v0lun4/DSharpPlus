@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-
 using Newtonsoft.Json;
 
 namespace DSharpPlus.Entities;
@@ -41,5 +40,4 @@ public sealed class DiscordRuleTriggerMetadata
 
     internal DiscordRuleTriggerMetadata() { }
 }
-
 

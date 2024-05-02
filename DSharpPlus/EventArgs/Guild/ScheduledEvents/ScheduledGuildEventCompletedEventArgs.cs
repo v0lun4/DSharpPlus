@@ -1,4 +1,5 @@
 using DSharpPlus.Entities;
+
 namespace DSharpPlus.EventArgs;
 
 /// <summary>
@@ -10,7 +11,6 @@ public class ScheduledGuildEventCompletedEventArgs : DiscordEventArgs
     /// The event that finished.
     /// </summary>
     public DiscordScheduledGuildEvent Event { get; internal set; }
-
 
     internal ScheduledGuildEventCompletedEventArgs() : base() { }
 }

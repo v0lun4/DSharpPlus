@@ -5,7 +5,7 @@ namespace DSharpPlus.CommandsNext.Entities;
 /// <summary>
 /// Represents a formatted help message.
 /// </summary>
-public struct CommandHelpMessage
+public readonly struct CommandHelpMessage
 {
     /// <summary>
     /// Gets the contents of the help message.
@@ -24,7 +24,7 @@ public struct CommandHelpMessage
     /// <param name="embed">Embed to attach to the message.</param>
     public CommandHelpMessage(string? content = null, DiscordEmbed? embed = null)
     {
-        this.Content = content;
-        this.Embed = embed;
+        Content = content;
+        Embed = embed;
     }
 }

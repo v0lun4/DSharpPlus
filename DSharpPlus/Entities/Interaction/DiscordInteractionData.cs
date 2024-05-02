@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 using Newtonsoft.Json;
 
@@ -42,7 +41,7 @@ public sealed class DiscordInteractionData : SnowflakeObject
     /// <summary>
     /// Components on this interaction. Only applies to modal interactions.
     /// </summary>
-    public IReadOnlyList<DiscordActionRowComponent> Components => this._components;
+    public IReadOnlyList<DiscordActionRowComponent> Components => _components;
 
     [JsonProperty("components", NullValueHandling = NullValueHandling.Ignore)]
     internal List<DiscordActionRowComponent> _components;
@@ -57,11 +56,11 @@ public sealed class DiscordInteractionData : SnowflakeObject
     /// The type of component that invoked this interaction, if applicable.
     /// </summary>
     [JsonProperty("component_type", NullValueHandling = NullValueHandling.Ignore)]
-    public ComponentType ComponentType { get; internal set; }
+    public DiscordComponentType ComponentType { get; internal set; }
 
     [JsonProperty("values", NullValueHandling = NullValueHandling.Ignore)]
-    public string[] Values { get; internal set; } = Array.Empty<string>();
+    public string[] Values { get; internal set; } = [];
 
     [JsonProperty("type", NullValueHandling = NullValueHandling.Ignore)]
-    public ApplicationCommandType Type { get; internal set; }
+    public DiscordApplicationCommandType Type { get; internal set; }
 }

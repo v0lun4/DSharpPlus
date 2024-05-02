@@ -22,13 +22,11 @@ public class DiscordGuildPreview : SnowflakeObject
     [JsonProperty("icon", NullValueHandling = NullValueHandling.Ignore)]
     public string Icon { get; internal set; }
 
-
     /// <summary>
     /// Gets the guild's splash.
     /// </summary>
     [JsonProperty("splash", NullValueHandling = NullValueHandling.Ignore)]
     public string Splash { get; internal set; }
-
 
     /// <summary>
     /// Gets the guild's discovery splash.
@@ -40,7 +38,7 @@ public class DiscordGuildPreview : SnowflakeObject
     /// Gets a collection of this guild's emojis.
     /// </summary>
     [JsonIgnore]
-    public IReadOnlyDictionary<ulong, DiscordEmoji> Emojis => new ReadOnlyConcurrentDictionary<ulong, DiscordEmoji>(this._emojis);
+    public IReadOnlyDictionary<ulong, DiscordEmoji> Emojis => new ReadOnlyConcurrentDictionary<ulong, DiscordEmoji>(_emojis);
 
     [JsonProperty("emojis", NullValueHandling = NullValueHandling.Ignore)]
     [JsonConverter(typeof(SnowflakeArrayAsDictionaryJsonConverter))]
@@ -63,7 +61,6 @@ public class DiscordGuildPreview : SnowflakeObject
     /// </summary>
     [JsonProperty("approximate_presence_count")]
     public int ApproximatePresenceCount { get; internal set; }
-
 
     /// <summary>
     /// Gets the description for the guild, if the guild is discoverable.

@@ -23,6 +23,7 @@
 
 namespace DSharpPlus.Entities.AuditLogs;
 
+
 public sealed class DiscordAuditLogThreadEventEntry : DiscordAuditLogEntry
 {
     /// <summary>
@@ -38,7 +39,7 @@ public sealed class DiscordAuditLogThreadEventEntry : DiscordAuditLogEntry
     /// <summary>
     /// Gets a change in channel type.
     /// </summary>
-    public PropertyChange<ChannelType?> Type { get; internal set; }
+    public PropertyChange<DiscordChannelType?> Type { get; internal set; }
 
     /// <summary>
     /// Gets a change in the thread's archived status.
@@ -68,7 +69,7 @@ public sealed class DiscordAuditLogThreadEventEntry : DiscordAuditLogEntry
     /// <summary>
     /// Gets a change in channel flags
     /// </summary>
-    public PropertyChange<ChannelFlags?> Flags { get; internal set; }
+    public PropertyChange<DiscordChannelFlags?> Flags { get; internal set; }
 
     internal DiscordAuditLogThreadEventEntry() { }
 }

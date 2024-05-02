@@ -38,7 +38,7 @@ internal class DiscordMentions
     [JsonProperty("replied_user", NullValueHandling = NullValueHandling.Ignore)]
     public bool? RepliedUser { get; }
 
-    internal DiscordMentions(IEnumerable<IMention> mentions, bool mention = false, bool repliedUser = false)
+    internal DiscordMentions(IEnumerable<IMention> mentions, bool repliedUser = false)
     {
         //Null check just to be safe
         if (mentions is null)
@@ -46,16 +46,15 @@ internal class DiscordMentions
             return;
         }
 
-        this.RepliedUser = repliedUser;
+        RepliedUser = repliedUser;
         //If we have no item in our mentions, its likely to be a empty array.
         // This is a special case were we want parse to be a empty array
         // Doing this allows for "no parsing"
         if (!mentions.Any())
         {
-            this.Parse = [];
+            Parse = [];
             return;
         }
-
 
         //Prepare a list of allowed IDs. We will be adding to these IDs.
         HashSet<ulong> roles = [];
@@ -104,18 +103,18 @@ internal class DiscordMentions
         //Check the validity of each item. If it isn't in the explicit allow list and they have items, then add them.
         if (!parse.Contains(ParseUsers) && users.Count > 0)
         {
-            this.Users = users;
+            Users = users;
         }
 
         if (!parse.Contains(ParseRoles) && roles.Count > 0)
         {
-            this.Roles = roles;
+            Roles = roles;
         }
 
         //If we have a empty parse array, we don't want to add it.
         if (parse.Count > 0)
         {
-            this.Parse = parse;
+            Parse = parse;
         }
     }
 }

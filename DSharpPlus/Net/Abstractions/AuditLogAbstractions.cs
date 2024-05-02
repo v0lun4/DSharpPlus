@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using DSharpPlus.Entities;
 using DSharpPlus.Entities.AuditLogs;
 using DSharpPlus.Net.Serialization;
@@ -15,24 +16,23 @@ internal sealed class AuditLogActionChange
 
     [JsonIgnore]
     public IEnumerable<JObject> OldValues
-        => (this.OldValue as JArray)?.ToDiscordObject<IEnumerable<JObject>>();
+        => (OldValue as JArray)?.ToDiscordObject<IEnumerable<JObject>>();
 
     [JsonIgnore]
     public ulong OldValueUlong
-        => (ulong)this.OldValue;
+        => (ulong)OldValue;
 
     [JsonIgnore]
     public string OldValueString
-        => (string)this.OldValue;
+        => (string)OldValue;
 
     [JsonIgnore]
     public bool OldValueBool
-        => (bool)this.OldValue;
+        => (bool)OldValue;
 
     [JsonIgnore]
     public long OldValueLong
-        => (long)this.OldValue;
-
+        => (long)OldValue;
 
     // this can be a string or an array
     [JsonProperty("new_value")]
@@ -40,23 +40,23 @@ internal sealed class AuditLogActionChange
 
     [JsonIgnore]
     public IEnumerable<JObject> NewValues
-        => (this.NewValue as JArray)?.ToDiscordObject<IEnumerable<JObject>>();
+        => (NewValue as JArray)?.ToDiscordObject<IEnumerable<JObject>>();
 
     [JsonIgnore]
     public ulong NewValueUlong
-        => (ulong)this.NewValue;
+        => (ulong)NewValue;
 
     [JsonIgnore]
     public string NewValueString
-        => (string)this.NewValue;
+        => (string)NewValue;
 
     [JsonIgnore]
     public bool NewValueBool
-        => (bool)this.NewValue;
+        => (bool)NewValue;
 
     [JsonIgnore]
     public long NewValueLong
-        => (long)this.NewValue;
+        => (long)NewValue;
 
     [JsonProperty("key")]
     public string Key { get; set; }
@@ -124,13 +124,13 @@ internal sealed class AuditLogAction
 
 internal sealed class AuditLog
 {
-    [JsonProperty("application_commands")]
+    [JsonProperty("application_commands"), SuppressMessage("CodeQuality", "IDE0051:Remove unread private members", Justification = "This is used by JSON.NET")]
     private IEnumerable<DiscordApplicationCommand> SlashCommands { get; set; }
 
     [JsonProperty("audit_log_entries")]
     public IEnumerable<AuditLogAction> Entries { get; set; }
 
-    [JsonProperty("auto_moderation_rules")]
+    [JsonProperty("auto_moderation_rules"), SuppressMessage("CodeQuality", "IDE0051:Remove unread private members", Justification = "This is used by JSON.NET")]
     private IEnumerable<DiscordAutoModerationRule> AutoModerationRules { get; set; }
 
     [JsonProperty("guild_scheduled_events")]

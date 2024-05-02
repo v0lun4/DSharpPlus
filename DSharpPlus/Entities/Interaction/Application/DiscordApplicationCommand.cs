@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Linq;
-
 using Newtonsoft.Json;
 
 namespace DSharpPlus.Entities;
@@ -23,7 +22,7 @@ public sealed class DiscordApplicationCommand : SnowflakeObject, IEquatable<Disc
     /// Gets the type of this application command.
     /// </summary>
     [JsonProperty("type")]
-    public ApplicationCommandType Type { get; internal set; }
+    public DiscordApplicationCommandType Type { get; internal set; }
 
     /// <summary>
     /// Gets the name of this command.
@@ -59,7 +58,7 @@ public sealed class DiscordApplicationCommand : SnowflakeObject, IEquatable<Disc
     /// What permissions this command requires to be invoked.
     /// </summary>
     [JsonProperty("default_member_permissions")]
-    public Permissions? DefaultMemberPermissions { get; internal set; }
+    public DiscordPermissions? DefaultMemberPermissions { get; internal set; }
 
     /// <summary>
     /// Whether this command is age-restricted.
@@ -78,18 +77,18 @@ public sealed class DiscordApplicationCommand : SnowflakeObject, IEquatable<Disc
 
     [JsonProperty("description_localizations")]
     public IReadOnlyDictionary<string, string> DescriptionLocalizations { get; internal set; }
-    
+
     /// <summary>
     /// Contexts in which this command can be invoked.
     /// </summary>
     [JsonProperty("contexts")]
-    public IReadOnlyList<InteractionContextType>? Contexts { get; internal set; }
-    
+    public IReadOnlyList<DiscordInteractionContextType>? Contexts { get; internal set; }
+
     /// <summary>
     /// Contexts in which this command can be installed.
     /// </summary>
     [JsonProperty("integration_types")]
-    public IReadOnlyList<ApplicationIntegrationType>? IntegrationTypes { get; internal set; }
+    public IReadOnlyList<DiscordApplicationIntegrationType>? IntegrationTypes { get; internal set; }
 
     /// <summary>
     /// Gets the command's mention string.
@@ -115,21 +114,21 @@ public sealed class DiscordApplicationCommand : SnowflakeObject, IEquatable<Disc
     /// <param name="integrationTypes">The installation contexts the command can be installed to.</param>
     public DiscordApplicationCommand
     (
-        string name, 
-        string description, 
-        IEnumerable<DiscordApplicationCommandOption> options = null, 
-        bool? defaultPermission = null, 
-        ApplicationCommandType type = ApplicationCommandType.SlashCommand, 
-        IReadOnlyDictionary<string, string> name_localizations = null, 
-        IReadOnlyDictionary<string, string> description_localizations = null, 
-        bool? allowDMUsage = null, 
-        Permissions? defaultMemberPermissions = null, 
+        string name,
+        string description,
+        IEnumerable<DiscordApplicationCommandOption> options = null,
+        bool? defaultPermission = null,
+        DiscordApplicationCommandType type = DiscordApplicationCommandType.SlashCommand,
+        IReadOnlyDictionary<string, string> name_localizations = null,
+        IReadOnlyDictionary<string, string> description_localizations = null,
+        bool? allowDMUsage = null,
+        DiscordPermissions? defaultMemberPermissions = null,
         bool? nsfw = null,
-        IReadOnlyList<InteractionContextType>? contexts = null,
-        IReadOnlyList<ApplicationIntegrationType>? integrationTypes = null
+        IReadOnlyList<DiscordInteractionContextType>? contexts = null,
+        IReadOnlyList<DiscordApplicationIntegrationType>? integrationTypes = null
     )
     {
-        if (type is ApplicationCommandType.SlashCommand)
+        if (type is DiscordApplicationCommandType.SlashCommand)
         {
             if (!Utilities.IsValidSlashCommandName(name))
             {
@@ -161,18 +160,18 @@ public sealed class DiscordApplicationCommand : SnowflakeObject, IEquatable<Disc
 
         ReadOnlyCollection<DiscordApplicationCommandOption>? optionsList = options != null ? new ReadOnlyCollection<DiscordApplicationCommandOption>(options.ToList()) : null;
 
-        this.Type = type;
-        this.Name = name;
-        this.Description = description;
-        this.Options = optionsList;
-        this.DefaultPermission = defaultPermission;
-        this.NameLocalizations = name_localizations;
-        this.DescriptionLocalizations = description_localizations;
-        this.AllowDMUsage = allowDMUsage;
-        this.DefaultMemberPermissions = defaultMemberPermissions;
-        this.NSFW = nsfw;
-        this.Contexts = contexts;
-        this.IntegrationTypes = integrationTypes;
+        Type = type;
+        Name = name;
+        Description = description;
+        Options = optionsList;
+        DefaultPermission = defaultPermission;
+        NameLocalizations = name_localizations;
+        DescriptionLocalizations = description_localizations;
+        AllowDMUsage = allowDMUsage;
+        DefaultMemberPermissions = defaultMemberPermissions;
+        NSFW = nsfw;
+        Contexts = contexts;
+        IntegrationTypes = integrationTypes;
     }
 
     /// <summary>
@@ -180,12 +179,9 @@ public sealed class DiscordApplicationCommand : SnowflakeObject, IEquatable<Disc
     /// </summary>
     /// <param name="name">The name of the subgroup and/or subcommand.</param>
     /// <returns>Formatted mention.</returns>
-    public string GetSubcommandMention(params string[] name)
-    {
-        return !this.Options.Any(x => x.Name == name[0])
+    public string GetSubcommandMention(params string[] name) => !Options.Any(x => x.Name == name[0])
             ? throw new ArgumentException("Specified subgroup/subcommand doesn't exist.")
-            : $"</{this.Name} {string.Join(" ", name)}:{this.Id.ToString(CultureInfo.InvariantCulture)}>";
-    }
+            : $"</{Name} {string.Join(" ", name)}:{Id.ToString(CultureInfo.InvariantCulture)}>";
 
     /// <summary>
     /// Checks whether this <see cref="DiscordApplicationCommand"/> object is equal to another object.
@@ -193,7 +189,7 @@ public sealed class DiscordApplicationCommand : SnowflakeObject, IEquatable<Disc
     /// <param name="other">The command to compare to.</param>
     /// <returns>Whether the command is equal to this <see cref="DiscordApplicationCommand"/>.</returns>
     public bool Equals(DiscordApplicationCommand other)
-        => this.Id == other.Id;
+        => Id == other.Id;
 
     /// <summary>
     /// Determines if two <see cref="DiscordApplicationCommand"/> objects are equal.
@@ -219,12 +215,12 @@ public sealed class DiscordApplicationCommand : SnowflakeObject, IEquatable<Disc
     /// <param name="other">The object to compare to.</param>
     /// <returns>Whether the two <see cref="DiscordApplicationCommand"/> objects are not equal.</returns>
     public override bool Equals(object other)
-        => other is DiscordApplicationCommand dac ? this.Equals(dac) : false;
+        => other is DiscordApplicationCommand dac && Equals(dac);
 
     /// <summary>
     /// Gets the hash code for this <see cref="DiscordApplicationCommand"/>.
     /// </summary>
     /// <returns>The hash code for this <see cref="DiscordApplicationCommand"/>.</returns>
     public override int GetHashCode()
-        => this.Id.GetHashCode();
+        => Id.GetHashCode();
 }

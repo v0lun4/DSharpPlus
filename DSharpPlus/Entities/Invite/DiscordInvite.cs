@@ -45,7 +45,7 @@ public class DiscordInvite
     /// Gets the target application for this invite.
     /// </summary>
     [JsonProperty("target_type", NullValueHandling = NullValueHandling.Ignore)]
-    public InviteTargetType? TargetType { get; internal set; }
+    public DiscordInviteTargetType? TargetType { get; internal set; }
 
     /// <summary>
     /// Gets the approximate guild online member count for the invite.
@@ -106,7 +106,7 @@ public class DiscordInvite
     /// </summary>
     [JsonIgnore]
     public DateTimeOffset? ExpiresAt
-        => !string.IsNullOrWhiteSpace(this.ExpiresAtRaw) && DateTimeOffset.TryParse(this.ExpiresAtRaw, CultureInfo.InvariantCulture, DateTimeStyles.None, out DateTimeOffset dto) ? dto : null;
+        => !string.IsNullOrWhiteSpace(ExpiresAtRaw) && DateTimeOffset.TryParse(ExpiresAtRaw, CultureInfo.InvariantCulture, DateTimeStyles.None, out DateTimeOffset dto) ? dto : null;
 
     [JsonProperty("expires_at", NullValueHandling = NullValueHandling.Ignore)]
     internal string ExpiresAtRaw { get; set; }
@@ -124,12 +124,12 @@ public class DiscordInvite
     /// </summary>
     /// <param name="reason">Reason for audit logs.</param>
     /// <returns></returns>
-    /// <exception cref="Exceptions.UnauthorizedException">Thrown when the client does not have the <see cref="Permissions.ManageChannels"/> permission or the <see cref="Permissions.ManageGuild"/> permission.</exception>
+    /// <exception cref="Exceptions.UnauthorizedException">Thrown when the client does not have the <see cref="DiscordPermissions.ManageChannels"/> permission or the <see cref="DiscordPermissions.ManageGuild"/> permission.</exception>
     /// <exception cref="Exceptions.NotFoundException">Thrown when the emoji does not exist.</exception>
     /// <exception cref="Exceptions.BadRequestException">Thrown when an invalid parameter was provided.</exception>
     /// <exception cref="Exceptions.ServerErrorException">Thrown when Discord is unable to process the request.</exception>
     public async Task<DiscordInvite> DeleteAsync(string reason = null)
-        => await this.Discord.ApiClient.DeleteInviteAsync(this.Code, reason);
+        => await Discord.ApiClient.DeleteInviteAsync(Code, reason);
 
     /*
      * Disabled due to API restrictions.
@@ -147,5 +147,5 @@ public class DiscordInvite
     /// Converts this invite into an invite link.
     /// </summary>
     /// <returns>A discord.gg invite link.</returns>
-    public override string ToString() => $"https://discord.gg/{this.Code}";
+    public override string ToString() => $"https://discord.gg/{Code}";
 }

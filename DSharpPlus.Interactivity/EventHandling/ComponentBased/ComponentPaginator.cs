@@ -5,6 +5,7 @@ using DSharpPlus.Entities;
 using DSharpPlus.EventArgs;
 using DSharpPlus.Interactivity.Enums;
 using Microsoft.Extensions.Logging;
+
 namespace DSharpPlus.Interactivity.EventHandling;
 
 internal class ComponentPaginator : IPaginator
@@ -12,19 +13,19 @@ internal class ComponentPaginator : IPaginator
     private readonly DiscordClient _client;
     private readonly InteractivityConfiguration _config;
     private readonly DiscordMessageBuilder _builder = new();
-    private readonly Dictionary<ulong, IPaginationRequest> _requests = new();
+    private readonly Dictionary<ulong, IPaginationRequest> _requests = [];
 
     public ComponentPaginator(DiscordClient client, InteractivityConfiguration config)
     {
-        this._client = client;
-        this._client.ComponentInteractionCreated += this.Handle;
-        this._config = config;
+        _client = client;
+        _client.ComponentInteractionCreated += HandleAsync;
+        _config = config;
     }
 
     public async Task DoPaginationAsync(IPaginationRequest request)
     {
         ulong id = (await request.GetMessageAsync()).Id;
-        this._requests.Add(id, request);
+        _requests.Add(id, request);
 
         try
         {
@@ -33,39 +34,38 @@ internal class ComponentPaginator : IPaginator
         }
         catch (Exception ex)
         {
-            this._client.Logger.LogError(InteractivityEvents.InteractivityPaginationError, ex, "There was an exception while paginating.");
+            _client.Logger.LogError(InteractivityEvents.InteractivityPaginationError, ex, "There was an exception while paginating.");
         }
         finally
         {
-            this._requests.Remove(id);
+            _requests.Remove(id);
             try
             {
                 await request.DoCleanupAsync();
             }
             catch (Exception ex)
             {
-                this._client.Logger.LogError(InteractivityEvents.InteractivityPaginationError, ex, "There was an exception while cleaning up pagination.");
+                _client.Logger.LogError(InteractivityEvents.InteractivityPaginationError, ex, "There was an exception while cleaning up pagination.");
             }
         }
     }
 
-    public void Dispose() => this._client.ComponentInteractionCreated -= this.Handle;
+    public void Dispose() => _client.ComponentInteractionCreated -= HandleAsync;
 
-
-    private async Task Handle(DiscordClient _, ComponentInteractionCreateEventArgs e)
+    private async Task HandleAsync(DiscordClient _, ComponentInteractionCreateEventArgs e)
     {
-        if (!this._requests.TryGetValue(e.Message.Id, out IPaginationRequest? req))
+        if (!_requests.TryGetValue(e.Message.Id, out IPaginationRequest? req))
         {
             return;
         }
 
-        await e.Interaction.CreateResponseAsync(InteractionResponseType.DeferredMessageUpdate);
+        await e.Interaction.CreateResponseAsync(DiscordInteractionResponseType.DeferredMessageUpdate);
 
         if (await req.GetUserAsync() != e.User)
         {
-            if (this._config.ResponseBehavior is InteractionResponseBehavior.Respond)
+            if (_config.ResponseBehavior is InteractionResponseBehavior.Respond)
             {
-                await e.Interaction.CreateFollowupMessageAsync(new() { Content = this._config.ResponseMessage, IsEphemeral = true });
+                await e.Interaction.CreateFollowupMessageAsync(new() { Content = _config.ResponseMessage, IsEphemeral = true });
             }
 
             return;
@@ -76,12 +76,12 @@ internal class ComponentPaginator : IPaginator
             ipr.RegenerateCTS(e.Interaction); // Necessary to ensure we don't prematurely yeet the CTS //
         }
 
-        await this.HandlePaginationAsync(req, e);
+        await HandlePaginationAsync(req, e);
     }
 
     private async Task HandlePaginationAsync(IPaginationRequest request, ComponentInteractionCreateEventArgs args)
     {
-        PaginationButtons buttons = this._config.PaginationButtons;
+        PaginationButtons buttons = _config.PaginationButtons;
         DiscordMessage msg = await request.GetMessageAsync();
         string id = args.Id;
         TaskCompletionSource<bool> tcs = await request.GetTaskCompletionSourceAsync();
@@ -106,7 +106,7 @@ internal class ComponentPaginator : IPaginator
         Page page = await request.GetPageAsync();
         IEnumerable<DiscordButtonComponent> bts = await request.GetButtonsAsync();
 
-        if (request is InteractionPaginationRequest ipr)
+        if (request is InteractionPaginationRequest)
         {
             DiscordWebhookBuilder builder = new DiscordWebhookBuilder()
                 .WithContent(page.Content)
@@ -117,15 +117,14 @@ internal class ComponentPaginator : IPaginator
             return;
         }
 
+        _builder.Clear();
 
-        this._builder.Clear();
-
-        this._builder
+        _builder
             .WithContent(page.Content)
             .AddEmbed(page.Embed)
             .AddComponents(bts);
 
-        await this._builder.ModifyAsync(msg);
+        await _builder.ModifyAsync(msg);
 
     }
 }

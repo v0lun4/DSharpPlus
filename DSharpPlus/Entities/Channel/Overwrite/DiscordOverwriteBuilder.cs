@@ -11,17 +11,17 @@ public sealed class DiscordOverwriteBuilder
     /// <summary>
     /// Gets or sets the allowed permissions for this overwrite.
     /// </summary>
-    public Permissions Allowed { get; set; }
+    public DiscordPermissions Allowed { get; set; }
 
     /// <summary>
     /// Gets or sets the denied permissions for this overwrite.
     /// </summary>
-    public Permissions Denied { get; set; }
+    public DiscordPermissions Denied { get; set; }
 
     /// <summary>
     /// Gets the type of this overwrite's target.
     /// </summary>
-    public OverwriteType Type { get; private set; }
+    public DiscordOverwriteType Type { get; private set; }
 
     /// <summary>
     /// Gets the target for this overwrite.
@@ -33,16 +33,16 @@ public sealed class DiscordOverwriteBuilder
     /// </summary>
     public DiscordOverwriteBuilder(DiscordMember member)
     {
-        this.Target = member;
-        this.Type = OverwriteType.Member;
+        Target = member;
+        Type = DiscordOverwriteType.Member;
     }
     /// <summary>
     /// Creates a new Discord permission overwrite builder for a role. This class can be used to construct permission overwrites for guild channels, used when creating channels.
     /// </summary>
     public DiscordOverwriteBuilder(DiscordRole role)
     {
-        this.Target = role;
-        this.Type = OverwriteType.Role;
+        Target = role;
+        Type = DiscordOverwriteType.Role;
     }
 
     /// <summary>
@@ -50,9 +50,9 @@ public sealed class DiscordOverwriteBuilder
     /// </summary>
     /// <param name="permission">Permission or permission set to allow for this overwrite.</param>
     /// <returns>This builder.</returns>
-    public DiscordOverwriteBuilder Allow(Permissions permission)
+    public DiscordOverwriteBuilder Allow(DiscordPermissions permission)
     {
-        this.Allowed |= permission;
+        Allowed |= permission;
         return this;
     }
 
@@ -61,9 +61,9 @@ public sealed class DiscordOverwriteBuilder
     /// </summary>
     /// <param name="permission">Permission or permission set to deny for this overwrite.</param>
     /// <returns>This builder.</returns>
-    public DiscordOverwriteBuilder Deny(Permissions permission)
+    public DiscordOverwriteBuilder Deny(DiscordPermissions permission)
     {
-        this.Denied |= permission;
+        Denied |= permission;
         return this;
     }
 
@@ -74,8 +74,8 @@ public sealed class DiscordOverwriteBuilder
     /// <returns>This builder.</returns>
     public DiscordOverwriteBuilder For(DiscordMember member)
     {
-        this.Target = member;
-        this.Type = OverwriteType.Member;
+        Target = member;
+        Type = DiscordOverwriteType.Member;
         return this;
     }
 
@@ -86,8 +86,8 @@ public sealed class DiscordOverwriteBuilder
     /// <returns>This builder.</returns>
     public DiscordOverwriteBuilder For(DiscordRole role)
     {
-        this.Target = role;
-        this.Type = OverwriteType.Role;
+        Target = role;
+        Type = DiscordOverwriteType.Role;
         return this;
     }
 
@@ -98,10 +98,10 @@ public sealed class DiscordOverwriteBuilder
     /// <returns>This builder.</returns>
     public async Task<DiscordOverwriteBuilder> FromAsync(DiscordOverwrite other)
     {
-        this.Allowed = other.Allowed;
-        this.Denied = other.Denied;
-        this.Type = other.Type;
-        this.Target = this.Type == OverwriteType.Member ? await other.GetMemberAsync() as SnowflakeObject : await other.GetRoleAsync() as SnowflakeObject;
+        Allowed = other.Allowed;
+        Denied = other.Denied;
+        Type = other.Type;
+        Target = Type == DiscordOverwriteType.Member ? await other.GetMemberAsync() : await other.GetRoleAsync();
 
         return this;
     }
@@ -110,29 +110,26 @@ public sealed class DiscordOverwriteBuilder
     /// Builds this DiscordOverwrite.
     /// </summary>
     /// <returns>Use this object for creation of new overwrites.</returns>
-    internal DiscordRestOverwrite Build()
+    internal DiscordRestOverwrite Build() => new()
     {
-        return new DiscordRestOverwrite()
-        {
-            Allow = this.Allowed,
-            Deny = this.Denied,
-            Id = this.Target.Id,
-            Type = this.Type,
-        };
-    }
+        Allow = Allowed,
+        Deny = Denied,
+        Id = Target.Id,
+        Type = Type,
+    };
 }
 
 internal struct DiscordRestOverwrite
 {
     [JsonProperty("allow", NullValueHandling = NullValueHandling.Ignore)]
-    internal Permissions Allow { get; set; }
+    internal DiscordPermissions Allow { get; set; }
 
     [JsonProperty("deny", NullValueHandling = NullValueHandling.Ignore)]
-    internal Permissions Deny { get; set; }
+    internal DiscordPermissions Deny { get; set; }
 
     [JsonProperty("id", NullValueHandling = NullValueHandling.Ignore)]
     internal ulong Id { get; set; }
 
     [JsonProperty("type", NullValueHandling = NullValueHandling.Ignore)]
-    internal OverwriteType Type { get; set; }
+    internal DiscordOverwriteType Type { get; set; }
 }

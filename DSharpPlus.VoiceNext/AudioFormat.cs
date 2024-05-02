@@ -9,7 +9,7 @@ namespace DSharpPlus.VoiceNext;
 /// <summary>
 /// Defines the format of PCM data consumed or produced by Opus.
 /// </summary>
-public struct AudioFormat
+public readonly struct AudioFormat
 {
     /// <summary>
     /// Gets the collection of sampling rates (in Hz) the Opus encoder can use.
@@ -64,14 +64,14 @@ public struct AudioFormat
             throw new ArgumentOutOfRangeException(nameof(channelCount), "Invalid channel count specified.");
         }
 
-        if (voiceApplication != VoiceApplication.Music && voiceApplication != VoiceApplication.Voice && voiceApplication != VoiceApplication.LowLatency)
+        if (voiceApplication is not VoiceApplication.Music and not VoiceApplication.Voice and not VoiceApplication.LowLatency)
         {
             throw new ArgumentOutOfRangeException(nameof(voiceApplication), "Invalid voice application specified.");
         }
 
-        this.SampleRate = sampleRate;
-        this.ChannelCount = channelCount;
-        this.VoiceApplication = voiceApplication;
+        SampleRate = sampleRate;
+        ChannelCount = channelCount;
+        VoiceApplication = voiceApplication;
     }
 
     /// <summary>
@@ -80,7 +80,7 @@ public struct AudioFormat
     /// <param name="sampleDuration">Millisecond duration of a sample.</param>
     /// <returns>Calculated sample size in bytes.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public int CalculateSampleSize(int sampleDuration)
+    public readonly int CalculateSampleSize(int sampleDuration)
     {
         if (!AllowedSampleDurations.Contains(sampleDuration))
         {
@@ -93,7 +93,7 @@ public struct AudioFormat
         // - sample rate in kHz
         // - size of data (in this case, sizeof(int16_t))
         // which comes down to below:
-        return sampleDuration * this.ChannelCount * (this.SampleRate / 1000) * 2;
+        return sampleDuration * ChannelCount * (SampleRate / 1000) * 2;
     }
 
     /// <summary>
@@ -102,25 +102,25 @@ public struct AudioFormat
     /// <returns>Buffer size required to decode data.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public int GetMaximumBufferSize()
-        => this.CalculateMaximumFrameSize();
+        => CalculateMaximumFrameSize();
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal int CalculateSampleDuration(int sampleSize)
-        => sampleSize / (this.SampleRate / 1000) / this.ChannelCount / 2 /* sizeof(int16_t) */;
+    internal readonly int CalculateSampleDuration(int sampleSize)
+        => sampleSize / (SampleRate / 1000) / ChannelCount / 2 /* sizeof(int16_t) */;
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal int CalculateFrameSize(int sampleDuration)
-        => sampleDuration * (this.SampleRate / 1000);
+    internal readonly int CalculateFrameSize(int sampleDuration)
+        => sampleDuration * (SampleRate / 1000);
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal int CalculateMaximumFrameSize()
-        => 120 * (this.SampleRate / 1000);
+    internal readonly int CalculateMaximumFrameSize()
+        => 120 * (SampleRate / 1000);
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal int SampleCountToSampleSize(int sampleCount)
-        => sampleCount * this.ChannelCount * 2 /* sizeof(int16_t) */;
+    internal readonly int SampleCountToSampleSize(int sampleCount)
+        => sampleCount * ChannelCount * 2 /* sizeof(int16_t) */;
 
-    internal bool IsValid()
-        => AllowedSampleRates.Contains(this.SampleRate) && AllowedChannelCounts.Contains(this.ChannelCount) &&
-            (this.VoiceApplication == VoiceApplication.Music || this.VoiceApplication == VoiceApplication.Voice || this.VoiceApplication == VoiceApplication.LowLatency);
+    internal readonly bool IsValid()
+        => AllowedSampleRates.Contains(SampleRate) && AllowedChannelCounts.Contains(ChannelCount) &&
+            (VoiceApplication == VoiceApplication.Music || VoiceApplication == VoiceApplication.Voice || VoiceApplication == VoiceApplication.LowLatency);
 }

@@ -1,10 +1,8 @@
-using DSharpPlus.Commands;
+using System;
 
 namespace DSharpPlus.Commands;
 
-using System;
-
-[AttributeUsage(AttributeTargets.Class | AttributeTargets.Method | AttributeTargets.Delegate)]
+[AttributeUsage(AttributeTargets.Parameter)]
 public sealed class ParameterAttribute : Attribute
 {
     /// <summary>
@@ -27,6 +25,6 @@ public sealed class ParameterAttribute : Attribute
             throw new ArgumentOutOfRangeException(nameof(name), "The name of the parameter must be between 1 and 32 characters.");
         }
 
-        this.Name = name;
+        Name = name;
     }
 }

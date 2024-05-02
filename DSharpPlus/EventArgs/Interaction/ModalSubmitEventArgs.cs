@@ -1,7 +1,7 @@
 using System.Collections.Generic;
-using System.Linq;
 using DSharpPlus.Entities;
 using Newtonsoft.Json;
+
 namespace DSharpPlus.EventArgs;
 
 /// <summary>
@@ -17,18 +17,18 @@ public class ModalSubmitEventArgs : InteractionCreateEventArgs
 
     internal ModalSubmitEventArgs(DiscordInteraction interaction)
     {
-        this.Interaction = interaction;
+        Interaction = interaction;
 
-        Dictionary<string, string> dict = new Dictionary<string, string>();
+        Dictionary<string, string> dict = [];
 
         foreach (DiscordActionRowComponent component in interaction.Data._components)
         {
-            if (component.Components.First() is TextInputComponent input)
+            if (component.Components[0] is DiscordTextInputComponent input)
             {
                 dict.Add(input.CustomId, input.Value);
             }
         }
 
-        this.Values = dict;
+        Values = dict;
     }
 }

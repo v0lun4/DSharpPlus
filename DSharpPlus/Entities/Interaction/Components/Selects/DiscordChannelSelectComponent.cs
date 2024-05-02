@@ -7,11 +7,11 @@ namespace DSharpPlus.Entities;
 public sealed class DiscordChannelSelectComponent : BaseDiscordSelectComponent
 {
     [JsonProperty("channel_types", NullValueHandling = NullValueHandling.Ignore)]
-    public IReadOnlyList<ChannelType> ChannelTypes { get; internal set; }
-    
+    public IReadOnlyList<DiscordChannelType> ChannelTypes { get; internal set; }
+
     [JsonProperty("default_values", NullValueHandling = NullValueHandling.Ignore)]
-    private List<DiscordSelectDefaultValue> _defaultValues = new();
-    
+    private readonly List<DiscordSelectDefaultValue> _defaultValues = [];
+
     /// <summary>
     /// The default values for this component.
     /// </summary>
@@ -69,7 +69,6 @@ public sealed class DiscordChannelSelectComponent : BaseDiscordSelectComponent
 
         return this;
     }
-    
 
     /// <summary>
     /// Enables this component.
@@ -77,7 +76,7 @@ public sealed class DiscordChannelSelectComponent : BaseDiscordSelectComponent
     /// <returns>The current component.</returns>
     public DiscordChannelSelectComponent Enable()
     {
-        this.Disabled = false;
+        Disabled = false;
         return this;
     }
 
@@ -87,11 +86,11 @@ public sealed class DiscordChannelSelectComponent : BaseDiscordSelectComponent
     /// <returns>The current component.</returns>
     public DiscordChannelSelectComponent Disable()
     {
-        this.Disabled = true;
+        Disabled = true;
         return this;
     }
 
-    internal DiscordChannelSelectComponent() => this.Type = ComponentType.ChannelSelect;
+    internal DiscordChannelSelectComponent() => Type = DiscordComponentType.ChannelSelect;
 
     /// <summary>
     /// Creates a new channel select component.
@@ -106,10 +105,10 @@ public sealed class DiscordChannelSelectComponent : BaseDiscordSelectComponent
     (
         string customId,
         string placeholder,
-        IEnumerable<ChannelType>? channelTypes = null,
+        IEnumerable<DiscordChannelType>? channelTypes = null,
         bool disabled = false,
         int minOptions = 1,
         int maxOptions = 1
-    ) : base(ComponentType.ChannelSelect, customId, placeholder, disabled, minOptions, maxOptions) =>
-        this.ChannelTypes = channelTypes?.ToList();
+    ) : base(DiscordComponentType.ChannelSelect, customId, placeholder, disabled, minOptions, maxOptions) =>
+        ChannelTypes = channelTypes?.ToList();
 }

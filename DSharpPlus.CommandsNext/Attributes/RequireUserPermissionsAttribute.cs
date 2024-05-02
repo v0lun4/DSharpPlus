@@ -1,5 +1,6 @@
 using System;
 using System.Threading.Tasks;
+using DSharpPlus.Entities;
 
 namespace DSharpPlus.CommandsNext.Attributes;
 
@@ -12,7 +13,7 @@ public sealed class RequireUserPermissionsAttribute : CheckBaseAttribute
     /// <summary>
     /// Gets the permissions required by this attribute.
     /// </summary>
-    public Permissions Permissions { get; }
+    public DiscordPermissions Permissions { get; }
 
     /// <summary>
     /// Gets this check's behaviour in DMs. True means the check will always pass in DMs, whereas false means that it will always fail.
@@ -24,17 +25,17 @@ public sealed class RequireUserPermissionsAttribute : CheckBaseAttribute
     /// </summary>
     /// <param name="permissions">Permissions required to execute this command.</param>
     /// <param name="ignoreDms">Sets this check's behaviour in DMs. True means the check will always pass in DMs, whereas false means that it will always fail.</param>
-    public RequireUserPermissionsAttribute(Permissions permissions, bool ignoreDms = true)
+    public RequireUserPermissionsAttribute(DiscordPermissions permissions, bool ignoreDms = true)
     {
-        this.Permissions = permissions;
-        this.IgnoreDms = ignoreDms;
+        Permissions = permissions;
+        IgnoreDms = ignoreDms;
     }
 
     public override Task<bool> ExecuteCheckAsync(CommandContext ctx, bool help)
     {
         if (ctx.Guild == null)
         {
-            return Task.FromResult(this.IgnoreDms);
+            return Task.FromResult(IgnoreDms);
         }
 
         DSharpPlus.Entities.DiscordMember? usr = ctx.Member;
@@ -48,10 +49,10 @@ public sealed class RequireUserPermissionsAttribute : CheckBaseAttribute
             return Task.FromResult(true);
         }
 
-        Permissions pusr = ctx.Channel.PermissionsFor(usr);
+        DiscordPermissions pusr = ctx.Channel.PermissionsFor(usr);
 
-        return (pusr & Permissions.Administrator) != 0
+        return (pusr & DiscordPermissions.Administrator) != 0
             ? Task.FromResult(true)
-            : (pusr & this.Permissions) == this.Permissions ? Task.FromResult(true) : Task.FromResult(false);
+            : (pusr & Permissions) == Permissions ? Task.FromResult(true) : Task.FromResult(false);
     }
 }

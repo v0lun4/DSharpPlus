@@ -6,12 +6,9 @@ using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
-
 using DSharpPlus.Net.Abstractions;
 using DSharpPlus.Net.Serialization;
-
 using Microsoft.Extensions.Logging;
-
 using Newtonsoft.Json.Linq;
 
 namespace DSharpPlus.Entities.AuditLogs;
@@ -23,6 +20,7 @@ internal static class AuditLogParser
     /// </summary>
     /// <param name="guild"> <see cref="DiscordGuild"/> which is the parent of the AuditLog</param>
     /// <param name="auditLog"> <see cref="AuditLog"/> whose entries should be parsed</param>
+    /// <param name="cancellationToken">A token to cancel the request</param>
     /// <returns>A list of <see cref="DiscordAuditLogEntry"/>. All entries which cant be parsed are dropped</returns>
     internal static async IAsyncEnumerable<DiscordAuditLogEntry> ParseAuditLogToEntriesAsync
     (
@@ -82,18 +80,14 @@ internal static class AuditLogParser
 
         IEnumerable<DiscordMember>? discordMembers = users.Select
         (
-            user => 
-            {
-                return guild._members is not null && guild._members.TryGetValue(user.Id, out DiscordMember? member)
+            user => guild._members is not null && guild._members.TryGetValue(user.Id, out DiscordMember? member)
                     ? member
-                    : new DiscordMember 
-                    { 
-                        Discord = guild.Discord, 
-                        Id = user.Id, 
-                        _guild_id = guild.Id 
-                    };
-            }
-        );
+                    : new DiscordMember
+                    {
+                        Discord = guild.Discord,
+                        Id = user.Id,
+                        _guild_id = guild.Id
+                    });
 
         Dictionary<ulong, DiscordMember> members = discordMembers.ToDictionary(xm => xm.Id, xm => xm);
 
@@ -104,7 +98,7 @@ internal static class AuditLogParser
             {
                 yield break;
             }
-            
+
             DiscordAuditLogEntry? entry =
                 await ParseAuditLogEntryAsync(guild, auditLogAction, members, threads, webhooks, events);
 
@@ -288,10 +282,10 @@ internal static class AuditLogParser
                     if (messageEntry.Channel is not null)
                     {
                         guild.Discord.UserCache.TryGetValue(auditLogAction.UserId, out DiscordUser? user);
-                        messageEntry.Target = user ?? new DiscordUser 
-                        { 
-                            Id = auditLogAction.UserId, 
-                            Discord = guild.Discord 
+                        messageEntry.Target = user ?? new DiscordUser
+                        {
+                            Id = auditLogAction.UserId,
+                            Discord = guild.Discord
                         };
                     }
 
@@ -332,10 +326,10 @@ internal static class AuditLogParser
                     if (auditLogAction.TargetId.HasValue)
                     {
                         dc.UserCache.TryGetValue(auditLogAction.TargetId.Value, out DiscordUser? user);
-                        messagePinEntry.Target = user ?? new DiscordUser 
-                        { 
-                            Id = auditLogAction.TargetId.Value, 
-                            Discord = guild.Discord 
+                        messagePinEntry.Target = user ?? new DiscordUser
+                        {
+                            Id = auditLogAction.TargetId.Value,
+                            Discord = guild.Discord
                         };
                     }
 
@@ -450,10 +444,10 @@ internal static class AuditLogParser
                     autoModerationEntry.TargetUser =
                         members.TryGetValue(auditLogAction.TargetId.Value, out DiscordMember? targetMember)
                             ? targetMember
-                            : new DiscordUser 
-                            { 
-                                Id = auditLogAction.TargetId.Value, 
-                                Discord = guild.Discord 
+                            : new DiscordUser
+                            {
+                                Id = auditLogAction.TargetId.Value,
+                                Discord = guild.Discord
                             };
                 }
 
@@ -605,27 +599,27 @@ internal static class AuditLogParser
                     break;
 
                 case "$add_keyword_filter":
-                    ruleEntry.AddedKeywords = ((JArray)change.NewValue).Cast<string>();
+                    ruleEntry.AddedKeywords = ((JArray)change.NewValue).Select(x => x.ToObject<string>());
                     break;
 
                 case "$remove_keyword_filter":
-                    ruleEntry.RemovedKeywords = ((JArray)change.NewValue).Cast<string>();
+                    ruleEntry.RemovedKeywords = ((JArray)change.NewValue).Select(x => x.ToObject<string>());
                     break;
 
                 case "$add_regex_patterns":
-                    ruleEntry.AddedRegexPatterns = ((JArray)change.NewValue).Cast<string>();
+                    ruleEntry.AddedRegexPatterns = ((JArray)change.NewValue).Select(x => x.ToObject<string>());
                     break;
 
                 case "$remove_regex_patterns":
-                    ruleEntry.RemovedRegexPatterns = ((JArray)change.NewValue).Cast<string>();
+                    ruleEntry.RemovedRegexPatterns = ((JArray)change.NewValue).Select(x => x.ToObject<string>());
                     break;
 
                 case "$add_allow_list":
-                    ruleEntry.AddedAllowList = ((JArray)change.NewValue).Cast<string>();
+                    ruleEntry.AddedAllowList = ((JArray)change.NewValue).Select(x => x.ToObject<string>());
                     break;
 
                 case "$remove_allow_list":
-                    ruleEntry.RemovedKeywords = ((JArray)change.NewValue).Cast<string>();
+                    ruleEntry.RemovedKeywords = ((JArray)change.NewValue).Select(x => x.ToObject<string>());
                     break;
 
                 default:
@@ -671,7 +665,7 @@ internal static class AuditLogParser
                     break;
 
                 case "type":
-                    entry.Type = PropertyChange<ChannelType?>.From(change);
+                    entry.Type = PropertyChange<DiscordChannelType?>.From(change);
                     break;
 
                 case "archived":
@@ -695,7 +689,7 @@ internal static class AuditLogParser
                     break;
 
                 case "flags":
-                    entry.Flags = PropertyChange<ChannelFlags?>.From(change);
+                    entry.Flags = PropertyChange<DiscordChannelFlags?>.From(change);
                     break;
 
                 default:
@@ -739,12 +733,7 @@ internal static class AuditLogParser
                     entry.Name = PropertyChange<string?>.From(change);
                     break;
                 case "channel_id":
-                    
-                    ulong.TryParse(change.NewValue as string, NumberStyles.Integer,
-                        CultureInfo.InvariantCulture, out ulong newChannelId);
-                    ulong.TryParse(change.OldValue as string, NumberStyles.Integer,
-                        CultureInfo.InvariantCulture, out ulong oldChannelId);
-                    
+                    ulong.TryParse(change.NewValue as string, NumberStyles.Integer, CultureInfo.InvariantCulture, out ulong newChannelId);
                     entry.Channel = new PropertyChange<DiscordChannel?>
                     {
                         Before =
@@ -768,7 +757,7 @@ internal static class AuditLogParser
                     break;
 
                 case "entity_type":
-                    entry.Type = PropertyChange<ScheduledGuildEventType?>.From(change);
+                    entry.Type = PropertyChange<DiscordScheduledGuildEventType?>.From(change);
                     break;
 
                 case "image_hash":
@@ -780,11 +769,11 @@ internal static class AuditLogParser
                     break;
 
                 case "privacy_level":
-                    entry.PrivacyLevel = PropertyChange<ScheduledGuildEventPrivacyLevel?>.From(change);
+                    entry.PrivacyLevel = PropertyChange<DiscordScheduledGuildEventPrivacyLevel?>.From(change);
                     break;
 
                 case "status":
-                    entry.Status = PropertyChange<ScheduledGuildEventStatus?>.From(change);
+                    entry.Status = PropertyChange<DiscordScheduledGuildEventStatus?>.From(change);
                     break;
 
                 default:
@@ -850,7 +839,7 @@ internal static class AuditLogParser
                     break;
 
                 case "verification_level":
-                    entry.VerificationLevelChange = PropertyChange<VerificationLevel?>.From(change);
+                    entry.VerificationLevelChange = PropertyChange<DiscordVerificationLevel?>.From(change);
                     break;
 
                 case "afk_channel_id":
@@ -913,7 +902,7 @@ internal static class AuditLogParser
                     break;
 
                 case "default_message_notifications":
-                    entry.NotificationSettingsChange = PropertyChange<DefaultMessageNotifications?>.From(change);
+                    entry.NotificationSettingsChange = PropertyChange<DiscordDefaultMessageNotifications?>.From(change);
                     break;
 
                 case "system_channel_id":
@@ -940,11 +929,11 @@ internal static class AuditLogParser
                     break;
 
                 case "explicit_content_filter":
-                    entry.ExplicitContentFilterChange = PropertyChange<ExplicitContentFilter?>.From(change);
+                    entry.ExplicitContentFilterChange = PropertyChange<DiscordExplicitContentFilter?>.From(change);
                     break;
 
                 case "mfa_level":
-                    entry.MfaLevelChange = PropertyChange<MfaLevel?>.From(change);
+                    entry.MfaLevelChange = PropertyChange<DiscordMfaLevel?>.From(change);
                     break;
 
                 case "region":
@@ -993,7 +982,7 @@ internal static class AuditLogParser
                     break;
 
                 case "type":
-                    entry.TypeChange = PropertyChange<ChannelType?>.From(change);
+                    entry.TypeChange = PropertyChange<DiscordChannelType?>.From(change);
                     break;
 
                 case "permission_overwrites":
@@ -1050,7 +1039,7 @@ internal static class AuditLogParser
                     break;
 
                 case "flags":
-                    entry.Flags = PropertyChange<ChannelFlags?>.From(change);
+                    entry.Flags = PropertyChange<DiscordChannelFlags?>.From(change);
                     break;
 
                 case "available_tags":
@@ -1112,15 +1101,15 @@ internal static class AuditLogParser
             switch (change.Key.ToLowerInvariant())
             {
                 case "deny":
-                    entry.DeniedPermissions = PropertyChange<Permissions?>.From(change);
+                    entry.DeniedPermissions = PropertyChange<DiscordPermissions?>.From(change);
                     break;
 
                 case "allow":
-                    entry.AllowedPermissions = PropertyChange<Permissions?>.From(change);
+                    entry.AllowedPermissions = PropertyChange<DiscordPermissions?>.From(change);
                     break;
 
                 case "type":
-                    entry.Type = PropertyChange<OverwriteType>.From(change);
+                    entry.Type = PropertyChange<DiscordOverwriteType>.From(change);
                     break;
 
                 case "id":
@@ -1234,7 +1223,7 @@ internal static class AuditLogParser
                     break;
 
                 case "permissions":
-                    entry.PermissionChange = PropertyChange<Permissions?>.From(change);
+                    entry.PermissionChange = PropertyChange<DiscordPermissions?>.From(change);
                     break;
 
                 case "position":
@@ -1350,13 +1339,13 @@ internal static class AuditLogParser
                     };
 
                     DiscordChannel? channel = entry.ChannelChange.Before ?? entry.ChannelChange.After;
-                    ChannelType? channelType = channel?.Type;
+                    DiscordChannelType? channelType = channel?.Type;
                     invite.Channel = new DiscordInviteChannel
                     {
                         Discord = guild.Discord,
                         Id = boolBefore ? ulongBefore : ulongAfter,
                         Name = channel?.Name ?? "",
-                        Type = channelType != null ? channelType.Value : ChannelType.Unknown
+                        Type = channelType != null ? channelType.Value : DiscordChannelType.Unknown
                     };
                     break;
 
@@ -1370,8 +1359,8 @@ internal static class AuditLogParser
 
                     entry.UsesChange = new PropertyChange<int?>
                     {
-                        Before = boolBefore ? (int?)intBefore : null,
-                        After = boolAfter ? (int?)intAfter : null
+                        Before = boolBefore ? intBefore : null,
+                        After = boolAfter ? intAfter : null
                     };
                     break;
 
@@ -1385,8 +1374,8 @@ internal static class AuditLogParser
 
                     entry.MaxUsesChange = new PropertyChange<int?>
                     {
-                        Before = boolBefore ? (int?)intBefore : null,
-                        After = boolAfter ? (int?)intAfter : null
+                        Before = boolBefore ? intBefore : null,
+                        After = boolAfter ? intAfter : null
                     };
                     break;
 
@@ -1537,11 +1526,11 @@ internal static class AuditLogParser
                     break;
 
                 case "type":
-                    entry.TypeChange = PropertyChange<StickerType?>.From(change);
+                    entry.TypeChange = PropertyChange<DiscordStickerType?>.From(change);
                     break;
 
                 case "format_type":
-                    entry.FormatChange = PropertyChange<StickerFormat?>.From(change);
+                    entry.FormatChange = PropertyChange<DiscordStickerFormat?>.From(change);
                     break;
 
                 default:

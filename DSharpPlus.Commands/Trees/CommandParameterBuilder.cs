@@ -4,13 +4,15 @@ using System.ComponentModel;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Reflection;
-using System.Threading.Tasks;
+
+using DSharpPlus.Commands.Processors.SlashCommands;
 using DSharpPlus.Commands.Processors.SlashCommands.ArgumentModifiers;
+using DSharpPlus.Commands.Trees.Metadata;
 using DSharpPlus.Entities;
 
 namespace DSharpPlus.Commands.Trees;
 
-public class CommandParameterBuilder
+public partial class CommandParameterBuilder
 {
     public string? Name { get; set; }
     public string? Description { get; set; }
@@ -25,22 +27,31 @@ public class CommandParameterBuilder
             throw new ArgumentNullException(nameof(name), "The name of the command cannot be null or whitespace.");
         }
 
-        Name = name;
+        if (!this.Attributes.Any(x => x is SnakeCasedNameAttribute))
+        {
+            this.Attributes.Add(new SnakeCasedNameAttribute(SlashCommandProcessor.ToSnakeCase(name)));
+        }
+
+        this.Name = name;
         return this;
     }
 
     public CommandParameterBuilder WithDescription(string? description)
     {
-        Description = description;
+        this.Description = description;
         return this;
     }
 
     public CommandParameterBuilder WithType(Type type)
     {
-        Type = type;
-        if (type.IsEnum && Attributes.All(attribute => attribute is not SlashChoiceProviderAttribute and not SlashAutoCompleteProviderAttribute))
+        this.Type = type;
+
+        if (type.IsEnum || (type is { Namespace: "System", Name: "Nullable`1" } && type.GetGenericArguments()[0].IsEnum))
         {
-            Attributes.Add(new SlashChoiceProviderAttribute<EnumOptionProvider>());
+            if (this.Attributes.All(attribute => attribute is not SlashChoiceProviderAttribute and not SlashAutoCompleteProviderAttribute))
+            {
+                this.Attributes.Add(new SlashChoiceProviderAttribute<EnumOptionProvider>());
+            }
         }
 
         return this;
@@ -63,39 +74,39 @@ public class CommandParameterBuilder
             listedAttributes.Add(attribute);
         }
 
-        Attributes = listedAttributes;
+        this.Attributes = listedAttributes;
         return this;
     }
 
     public CommandParameterBuilder WithDefaultValue(Optional<object?> defaultValue)
     {
-        DefaultValue = defaultValue;
+        this.DefaultValue = defaultValue;
         return this;
     }
 
     [MemberNotNull(nameof(Name), nameof(Description), nameof(Type), nameof(Attributes))]
     public CommandParameter Build()
     {
-        ArgumentNullException.ThrowIfNull(Name, nameof(Name));
-        ArgumentNullException.ThrowIfNull(Description, nameof(Description));
-        ArgumentNullException.ThrowIfNull(Type, nameof(Type));
-        ArgumentNullException.ThrowIfNull(Attributes, nameof(Attributes));
-        ArgumentNullException.ThrowIfNull(DefaultValue, nameof(DefaultValue));
+        ArgumentNullException.ThrowIfNull(this.Name, nameof(this.Name));
+        ArgumentNullException.ThrowIfNull(this.Description, nameof(this.Description));
+        ArgumentNullException.ThrowIfNull(this.Type, nameof(this.Type));
+        ArgumentNullException.ThrowIfNull(this.Attributes, nameof(this.Attributes));
+        ArgumentNullException.ThrowIfNull(this.DefaultValue, nameof(this.DefaultValue));
 
         // Push it through the With* methods again, which contain validation.
-        WithName(Name);
-        WithDescription(Description);
-        WithAttributes(Attributes);
-        WithType(Type);
-        WithDefaultValue(DefaultValue);
+        WithName(this.Name);
+        WithDescription(this.Description);
+        WithAttributes(this.Attributes);
+        WithType(this.Type);
+        WithDefaultValue(this.DefaultValue);
 
         return new CommandParameter()
         {
-            Name = Name,
-            Description = Description,
-            Type = Type,
-            Attributes = Attributes,
-            DefaultValue = DefaultValue
+            Name = this.Name,
+            Description = this.Description,
+            Type = this.Type,
+            Attributes = this.Attributes,
+            DefaultValue = this.DefaultValue
         };
     }
 
@@ -131,38 +142,5 @@ public class CommandParameterBuilder
         }
 
         return commandParameterBuilder;
-    }
-
-    public class EnumOptionProvider : IChoiceProvider
-    {
-        public ValueTask<IReadOnlyDictionary<string, object>> ProvideAsync(CommandParameter parameter)
-        {
-            List<string> enumNames = [];
-            foreach (FieldInfo fieldInfo in parameter.Type.GetFields())
-            {
-                if (fieldInfo.IsSpecialName || !fieldInfo.IsStatic)
-                {
-                    continue;
-                }
-                else if (fieldInfo.GetCustomAttribute<ChoiceDisplayNameAttribute>() is ChoiceDisplayNameAttribute displayNameAttribute)
-                {
-                    enumNames.Add(displayNameAttribute.DisplayName);
-                }
-                else
-                {
-                    enumNames.Add(fieldInfo.Name);
-                }
-            }
-
-            Dictionary<string, object> choices = [];
-            Array enumValues = Enum.GetValuesAsUnderlyingType(parameter.Type);
-            for (int i = 0; i < enumNames.Count; i++)
-            {
-                string? value = enumValues.GetValue(i)?.ToString() ?? throw new InvalidOperationException($"Failed to get the value of the enum {parameter.Type.Name} for element {enumNames[i]}");
-                choices.Add(enumNames[i], value.ToString());
-            }
-
-            return ValueTask.FromResult<IReadOnlyDictionary<string, object>>(choices);
-        }
     }
 }

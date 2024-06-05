@@ -205,7 +205,7 @@ public static partial class CommandsNextUtilities
             string? argValue = string.Empty;
             if (arg.IsCatchAll)
             {
-                if (arg._isArray)
+                if (arg.isArray)
                 {
                     while (true)
                     {
@@ -259,7 +259,7 @@ public static partial class CommandsNextUtilities
         for (int i = 0; i < overload.Arguments.Count; i++)
         {
             CommandArgument arg = overload.Arguments[i];
-            if (arg.IsCatchAll && arg._isArray)
+            if (arg.IsCatchAll && arg.isArray)
             {
                 Array array = Array.CreateInstance(arg.Type, rawArgumentList.Count - i);
                 int start = i;
@@ -355,7 +355,7 @@ public static partial class CommandsNextUtilities
 
         // check if appropriate return and arguments
         parameters = method.GetParameters();
-        if (parameters.Length != 0 || parameters[0].ParameterType != typeof(CommandContext) || method.ReturnType != typeof(Task))
+        if (parameters.Length < 1 || parameters[0].ParameterType != typeof(CommandContext) || method.ReturnType != typeof(Task))
         {
             return false;
         }

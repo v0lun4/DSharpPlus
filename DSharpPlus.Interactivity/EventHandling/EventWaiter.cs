@@ -1,8 +1,9 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 using System.Linq;
-using System.Reflection;
 using System.Threading.Tasks;
 using ConcurrentCollections;
 using DSharpPlus.AsyncEvents;
@@ -17,12 +18,12 @@ namespace DSharpPlus.Interactivity.EventHandling;
 /// <typeparam name="T"></typeparam>
 internal class EventWaiter<T> : IDisposable where T : AsyncEventArgs
 {
-    private DiscordClient _client;
-    private AsyncEvent<DiscordClient, T> _event;
-    private AsyncEventHandler<DiscordClient, T> _handler;
-    private ConcurrentHashSet<MatchRequest<T>> _matchrequests;
-    private ConcurrentHashSet<CollectRequest<T>> _collectrequests;
-    private bool _disposed = false;
+    private DiscordClient client;
+    private AsyncEvent<DiscordClient, T> @event;
+    private AsyncEventHandler<DiscordClient, T> handler;
+    private ConcurrentHashSet<MatchRequest<T>> matchrequests;
+    private ConcurrentHashSet<CollectRequest<T>> collectrequests;
+    private bool disposed = false;
 
     /// <summary>
     /// Creates a new Eventwaiter object.
@@ -30,14 +31,22 @@ internal class EventWaiter<T> : IDisposable where T : AsyncEventArgs
     /// <param name="client">Your DiscordClient</param>
     public EventWaiter(DiscordClient client)
     {
-        _client = client;
-        TypeInfo tinfo = _client.GetType().GetTypeInfo();
-        FieldInfo handler = tinfo.DeclaredFields.First(x => x.FieldType == typeof(AsyncEvent<DiscordClient, T>));
-        _matchrequests = [];
-        _collectrequests = [];
-        _event = (AsyncEvent<DiscordClient, T>)handler.GetValue(_client);
-        _handler = new AsyncEventHandler<DiscordClient, T>(HandleEvent);
-        _event.Register(_handler);
+        this.client = client;
+        if (InteractivityExtension.GetEventsField(client) is not ConcurrentDictionary<Type, AsyncEvent> events)
+        {
+            throw new UnreachableException("Could not get the events from the events field in DiscordClient. This is a bug, please report it.");
+        }
+
+        if (!events.TryGetValue(typeof(T), out AsyncEvent? @event))
+        {
+            throw new UnreachableException($"The event {typeof(T).Name} is not registered in the DiscordClient. This is a bug, please report it.");
+        }
+
+        this.matchrequests = [];
+        this.collectrequests = [];
+        this.handler = new AsyncEventHandler<DiscordClient, T>(HandleEvent);
+        this.@event = (AsyncEvent<DiscordClient, T>)@event;
+        this.@event.Register(this.handler);
     }
 
     /// <summary>
@@ -48,19 +57,19 @@ internal class EventWaiter<T> : IDisposable where T : AsyncEventArgs
     public async Task<T> WaitForMatchAsync(MatchRequest<T> request)
     {
         T result = null;
-        _matchrequests.Add(request);
+        this.matchrequests.Add(request);
         try
         {
-            result = await request._tcs.Task;
+            result = await request.tcs.Task;
         }
         catch (Exception ex)
         {
-            _client.Logger.LogError(InteractivityEvents.InteractivityWaitError, ex, "An exception occurred while waiting for {Request}", typeof(T).Name);
+            this.client.Logger.LogError(InteractivityEvents.InteractivityWaitError, ex, "An exception occurred while waiting for {Request}", typeof(T).Name);
         }
         finally
         {
             request.Dispose();
-            _matchrequests.TryRemove(request);
+            this.matchrequests.TryRemove(request);
         }
         return result;
     }
@@ -68,41 +77,41 @@ internal class EventWaiter<T> : IDisposable where T : AsyncEventArgs
     public async Task<ReadOnlyCollection<T>> CollectMatchesAsync(CollectRequest<T> request)
     {
         ReadOnlyCollection<T> result;
-        _collectrequests.Add(request);
+        this.collectrequests.Add(request);
         try
         {
-            await request._tcs.Task;
+            await request.tcs.Task;
         }
         catch (Exception ex)
         {
-            _client.Logger.LogError(InteractivityEvents.InteractivityWaitError, ex, "An exception occurred while collecting from {Request}", typeof(T).Name);
+            this.client.Logger.LogError(InteractivityEvents.InteractivityWaitError, ex, "An exception occurred while collecting from {Request}", typeof(T).Name);
         }
         finally
         {
-            result = new ReadOnlyCollection<T>(new HashSet<T>(request._collected).ToList());
+            result = new ReadOnlyCollection<T>(new HashSet<T>(request.collected).ToList());
             request.Dispose();
-            _collectrequests.TryRemove(request);
+            this.collectrequests.TryRemove(request);
         }
         return result;
     }
 
     private Task HandleEvent(DiscordClient client, T eventargs)
     {
-        if (!_disposed)
+        if (!this.disposed)
         {
-            foreach (MatchRequest<T> req in _matchrequests)
+            foreach (MatchRequest<T> req in this.matchrequests)
             {
-                if (req._predicate(eventargs))
+                if (req.predicate(eventargs))
                 {
-                    req._tcs.TrySetResult(eventargs);
+                    req.tcs.TrySetResult(eventargs);
                 }
             }
 
-            foreach (CollectRequest<T> req in _collectrequests)
+            foreach (CollectRequest<T> req in this.collectrequests)
             {
-                if (req._predicate(eventargs))
+                if (req.predicate(eventargs))
                 {
-                    req._collected.Add(eventargs);
+                    req.collected.Add(eventargs);
                 }
             }
         }
@@ -115,28 +124,28 @@ internal class EventWaiter<T> : IDisposable where T : AsyncEventArgs
     /// </summary>
     public void Dispose()
     {
-        if (_disposed)
+        if (this.disposed)
         {
             return;
         }
 
-        _disposed = true;
+        this.disposed = true;
 
-        if (_event != null && _handler != null)
+        if (this.@event != null && this.handler != null)
         {
-            _event.Unregister(_handler);
+            this.@event.Unregister(this.handler);
         }
 
-        _event = null!;
-        _handler = null!;
-        _client = null!;
+        this.@event = null!;
+        this.handler = null!;
+        this.client = null!;
 
-        _matchrequests?.Clear();
+        this.matchrequests?.Clear();
 
-        _collectrequests?.Clear();
+        this.collectrequests?.Clear();
 
-        _matchrequests = null!;
-        _collectrequests = null!;
+        this.matchrequests = null!;
+        this.collectrequests = null!;
 
         // Satisfy rule CA1816. Can be removed if this class is sealed.
         GC.SuppressFinalize(this);

@@ -22,8 +22,8 @@ public class BadRequestException : DiscordException
     internal BadRequestException(HttpRequestMessage request, HttpResponseMessage response, string content)
         : base("Bad request: " + response.StatusCode)
     {
-        Request = request;
-        Response = response;
+        this.Request = request;
+        this.Response = response;
 
         try
         {
@@ -36,7 +36,7 @@ public class BadRequestException : DiscordException
                 && code.ValueKind == JsonValueKind.Number
             )
             {
-                Code = code.GetInt32();
+                this.Code = code.GetInt32();
             }
 
             if
@@ -45,16 +45,15 @@ public class BadRequestException : DiscordException
                 && message.ValueKind == JsonValueKind.String
             )
             {
-                JsonMessage = message.GetString();
+                this.JsonMessage = message.GetString();
             }
 
             if
             (
                 responseModel.TryGetProperty("errors", out JsonElement errors)
-                && message.ValueKind == JsonValueKind.String
             )
             {
-                Errors = errors.GetString();
+                this.Errors = JsonSerializer.Serialize(errors);
             }
         }
         catch { }

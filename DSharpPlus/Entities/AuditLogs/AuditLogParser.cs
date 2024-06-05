@@ -56,37 +56,37 @@ internal static class AuditLogParser
         //update event cache and create a dictionary for it
         foreach (DiscordScheduledGuildEvent discordEvent in uniqueScheduledEvents)
         {
-            if (guild._scheduledEvents.ContainsKey(discordEvent.Id))
+            if (guild.scheduledEvents.ContainsKey(discordEvent.Id))
             {
                 continue;
             }
 
-            guild._scheduledEvents[discordEvent.Id] = discordEvent;
+            guild.scheduledEvents[discordEvent.Id] = discordEvent;
         }
 
-        IDictionary<ulong, DiscordScheduledGuildEvent> events = guild._scheduledEvents;
+        IDictionary<ulong, DiscordScheduledGuildEvent> events = guild.scheduledEvents;
 
         foreach (DiscordThreadChannel thread in uniqueThreads)
         {
-            if (guild._threads.ContainsKey(thread.Id))
+            if (guild.threads.ContainsKey(thread.Id))
             {
                 continue;
             }
 
-            guild._threads[thread.Id] = thread;
+            guild.threads[thread.Id] = thread;
         }
 
-        IDictionary<ulong, DiscordThreadChannel> threads = guild._threads;
+        IDictionary<ulong, DiscordThreadChannel> threads = guild.threads;
 
         IEnumerable<DiscordMember>? discordMembers = users.Select
         (
-            user => guild._members is not null && guild._members.TryGetValue(user.Id, out DiscordMember? member)
+            user => guild.members is not null && guild.members.TryGetValue(user.Id, out DiscordMember? member)
                     ? member
                     : new DiscordMember
                     {
                         Discord = guild.Discord,
                         Id = user.Id,
-                        _guild_id = guild.Id
+                        guild_id = guild.Id
                     });
 
         Dictionary<ulong, DiscordMember> members = discordMembers.ToDictionary(xm => xm.Id, xm => xm);
@@ -133,13 +133,13 @@ internal static class AuditLogParser
     )
     {
         //initialize members if null
-        members ??= guild._members;
+        members ??= guild.members;
 
         //initialize threads if null
-        threads ??= guild._threads;
+        threads ??= guild.threads;
 
         //initialize scheduled events if null
-        events ??= guild._scheduledEvents;
+        events ??= guild.scheduledEvents;
 
         webhooks ??= new Dictionary<ulong, DiscordWebhook>();
 
@@ -171,7 +171,7 @@ internal static class AuditLogParser
                         {
                             Id = auditLogAction.TargetId.Value,
                             Discord = guild.Discord,
-                            _guild_id = guild.Id
+                            guild_id = guild.Id
                         }
                 };
                 break;
@@ -194,7 +194,7 @@ internal static class AuditLogParser
                         {
                             Id = auditLogAction.TargetId.Value,
                             Discord = guild.Discord,
-                            _guild_id = guild.Id
+                            guild_id = guild.Id
                         }
                 };
                 break;
@@ -227,7 +227,7 @@ internal static class AuditLogParser
             case DiscordAuditLogActionType.EmojiUpdate:
                 entry = new DiscordAuditLogEmojiEntry
                 {
-                    Target = guild._emojis.TryGetValue(auditLogAction.TargetId!.Value, out DiscordEmoji? target)
+                    Target = guild.emojis.TryGetValue(auditLogAction.TargetId!.Value, out DiscordEmoji? target)
                         ? target
                         : new DiscordEmoji { Id = auditLogAction.TargetId.Value, Discord = guild.Discord }
                 };
@@ -245,7 +245,7 @@ internal static class AuditLogParser
                             if (guild.Discord.Configuration.LogUnknownAuditlogs)
                             {
                                 guild.Discord.Logger.LogWarning(LoggerEvents.AuditLog,
-                                    "Unknown key in emote update: {Key} - this should be reported to library developers",
+                                    "Unknown key in emote update: {Key} - Please take a look at GitHub issue #1580",
                                     actionChange.Key);
                             }
 
@@ -467,7 +467,7 @@ internal static class AuditLogParser
                 if (guild.Discord.Configuration.LogUnknownAuditlogs)
                 {
                     guild.Discord.Logger.LogWarning(LoggerEvents.AuditLog,
-                        "Unknown audit log action type: {type} - this should be reported to library developers",
+                        "Unknown audit log action type: {type} - Please take a look at GitHub issue #1580",
                         (int)auditLogAction.ActionType);
                 }
 
@@ -626,7 +626,7 @@ internal static class AuditLogParser
                     if (guild.Discord.Configuration.LogUnknownAuditlogs)
                     {
                         guild.Discord.Logger.LogWarning(LoggerEvents.AuditLog,
-                            "Unknown key in AutoModRule update: {Key} - this should be reported to library developers",
+                            "Unknown key in AutoModRule update: {Key} - Please take a look at GitHub issue #1580",
                             change.Key);
                     }
 
@@ -653,7 +653,7 @@ internal static class AuditLogParser
                 threads.TryGetValue(auditLogAction.TargetId!.Value,
                     out DiscordThreadChannel? channel)
                     ? channel
-                    : new DiscordThreadChannel() { Id = auditLogAction.TargetId.Value, Discord = guild.Discord },
+                    : new DiscordThreadChannel() { Id = auditLogAction.TargetId.Value, Discord = guild.Discord, GuildId = guild.Id }
         };
 
         foreach (AuditLogActionChange change in auditLogAction.Changes)
@@ -696,7 +696,7 @@ internal static class AuditLogParser
                     if (guild.Discord.Configuration.LogUnknownAuditlogs)
                     {
                         guild.Discord.Logger.LogWarning(LoggerEvents.AuditLog,
-                            "Unknown key in thread update: {Key} - this should be reported to library developers",
+                            "Unknown key in thread update: {Key} - Please take a look at GitHub issue #1580",
                             change.Key);
                     }
 
@@ -780,7 +780,7 @@ internal static class AuditLogParser
                     if (guild.Discord.Configuration.LogUnknownAuditlogs)
                     {
                         guild.Discord.Logger.LogWarning(LoggerEvents.AuditLog,
-                            "Unknown key in scheduled event update: {Key} - this should be reported to library developers",
+                            "Unknown key in scheduled event update: {Key} - Please take a look at GitHub issue #1580",
                             change.Key);
                     }
 
@@ -814,12 +814,12 @@ internal static class AuditLogParser
                 case "owner_id":
                     entry.OwnerChange = new PropertyChange<DiscordMember?>
                     {
-                        Before = guild._members != null && guild._members.TryGetValue(
+                        Before = guild.members != null && guild.members.TryGetValue(
                             change.OldValueUlong,
                             out DiscordMember? oldMember)
                             ? oldMember
                             : await guild.GetMemberAsync(change.OldValueUlong),
-                        After = guild._members != null && guild._members.TryGetValue(change.NewValueUlong,
+                        After = guild.members != null && guild.members.TryGetValue(change.NewValueUlong,
                             out DiscordMember? newMember)
                             ? newMember
                             : await guild.GetMemberAsync(change.NewValueUlong)
@@ -944,7 +944,7 @@ internal static class AuditLogParser
                     if (guild.Discord.Configuration.LogUnknownAuditlogs)
                     {
                         guild.Discord.Logger.LogWarning(LoggerEvents.AuditLog,
-                            "Unknown key in guild update: {Key} - this should be reported to library developers",
+                            "Unknown key in guild update: {Key} - Please take a look at GitHub issue #1580",
                             change.Key);
                     }
 
@@ -1067,7 +1067,7 @@ internal static class AuditLogParser
                     if (guild.Discord.Configuration.LogUnknownAuditlogs)
                     {
                         guild.Discord.Logger.LogWarning(LoggerEvents.AuditLog,
-                            "Unknown key in channel update: {Key} - this should be reported to library developers",
+                            "Unknown key in channel update: {Key} - Please take a look at GitHub issue #1580",
                             change.Key);
                     }
 
@@ -1120,7 +1120,7 @@ internal static class AuditLogParser
                     if (guild.Discord.Configuration.LogUnknownAuditlogs)
                     {
                         guild.Discord.Logger.LogWarning(LoggerEvents.AuditLog,
-                            "Unknown key in overwrite update: {Key} - this should be reported to library developers",
+                            "Unknown key in overwrite update: {Key} - Please take a look at GitHub issue #1580",
                             change.Key);
                     }
 
@@ -1142,9 +1142,9 @@ internal static class AuditLogParser
     {
         DiscordAuditLogMemberUpdateEntry entry = new()
         {
-            Target = guild._members.TryGetValue(auditLogAction.TargetId!.Value, out DiscordMember? roleUpdMember)
+            Target = guild.members.TryGetValue(auditLogAction.TargetId!.Value, out DiscordMember? roleUpdMember)
                 ? roleUpdMember
-                : new DiscordMember { Id = auditLogAction.TargetId.Value, Discord = guild.Discord, _guild_id = guild.Id }
+                : new DiscordMember { Id = auditLogAction.TargetId.Value, Discord = guild.Discord, guild_id = guild.Id }
         };
 
         foreach (AuditLogActionChange? change in auditLogAction.Changes)
@@ -1184,7 +1184,7 @@ internal static class AuditLogParser
                     if (guild.Discord.Configuration.LogUnknownAuditlogs)
                     {
                         guild.Discord.Logger.LogWarning(LoggerEvents.AuditLog,
-                            "Unknown key in member update: {Key} - this should be reported to library developers",
+                            "Unknown key in member update: {Key} - Please take a look at GitHub issue #1580",
                             change.Key);
                     }
 
@@ -1235,13 +1235,14 @@ internal static class AuditLogParser
                     break;
 
                 case "hoist":
-                    entry.HoistChange = PropertyChange<bool?>.From(change); break;
+                    entry.HoistChange = PropertyChange<bool?>.From(change);
+                    break;
 
                 default:
                     if (guild.Discord.Configuration.LogUnknownAuditlogs)
                     {
                         guild.Discord.Logger.LogWarning(LoggerEvents.AuditLog,
-                            "Unknown key in role update: {Key} - this should be reported to library developers",
+                            "Unknown key in role update: {Key} - Please take a look at GitHub issue #1580",
                             change.Key);
                     }
 
@@ -1309,12 +1310,12 @@ internal static class AuditLogParser
 
                     entry.InviterChange = new PropertyChange<DiscordMember>
                     {
-                        Before = guild._members.TryGetValue(ulongBefore, out DiscordMember? propBeforeMember)
+                        Before = guild.members.TryGetValue(ulongBefore, out DiscordMember? propBeforeMember)
                             ? propBeforeMember
-                            : new DiscordMember { Id = ulongBefore, Discord = guild.Discord, _guild_id = guild.Id },
-                        After = guild._members.TryGetValue(ulongAfter, out DiscordMember? propAfterMember)
+                            : new DiscordMember { Id = ulongBefore, Discord = guild.Discord, guild_id = guild.Id },
+                        After = guild.members.TryGetValue(ulongAfter, out DiscordMember? propAfterMember)
                             ? propAfterMember
-                            : new DiscordMember { Id = ulongBefore, Discord = guild.Discord, _guild_id = guild.Id }
+                            : new DiscordMember { Id = ulongBefore, Discord = guild.Discord, guild_id = guild.Id }
                     };
                     break;
 
@@ -1383,7 +1384,7 @@ internal static class AuditLogParser
                     if (guild.Discord.Configuration.LogUnknownAuditlogs)
                     {
                         guild.Discord.Logger.LogWarning(LoggerEvents.AuditLog,
-                            "Unknown key in invite update: {Key} - this should be reported to library developers",
+                            "Unknown key in invite update: {Key} - Please take a look at GitHub issue #1580",
                             change.Key);
                     }
 
@@ -1467,7 +1468,7 @@ internal static class AuditLogParser
                     if (guild.Discord.Configuration.LogUnknownAuditlogs)
                     {
                         guild.Discord.Logger.LogWarning(LoggerEvents.AuditLog,
-                            "Unknown key in webhook update: {Key} - this should be reported to library developers",
+                            "Unknown key in webhook update: {Key} - Please take a look at GitHub issue #1580",
                             change.Key);
                     }
 
@@ -1488,7 +1489,7 @@ internal static class AuditLogParser
     {
         DiscordAuditLogStickerEntry entry = new()
         {
-            Target = guild._stickers.TryGetValue(auditLogAction.TargetId!.Value, out DiscordMessageSticker? sticker)
+            Target = guild.stickers.TryGetValue(auditLogAction.TargetId!.Value, out DiscordMessageSticker? sticker)
                 ? sticker
                 : new DiscordMessageSticker { Id = auditLogAction.TargetId.Value, Discord = guild.Discord }
         };
@@ -1537,7 +1538,7 @@ internal static class AuditLogParser
                     if (guild.Discord.Configuration.LogUnknownAuditlogs)
                     {
                         guild.Discord.Logger.LogWarning(LoggerEvents.AuditLog,
-                            "Unknown key in sticker update: {Key} - this should be reported to library developers",
+                            "Unknown key in sticker update: {Key} - Please take a look at GitHub issue #1580",
                             change.Key);
                     }
 
@@ -1586,7 +1587,7 @@ internal static class AuditLogParser
                     if (guild.Discord.Configuration.LogUnknownAuditlogs)
                     {
                         guild.Discord.Logger.LogWarning(LoggerEvents.AuditLog,
-                            "Unknown key in integration update: {Key} - this should be reported to library developers",
+                            "Unknown key in integration update: {Key} - Please take a look at GitHub issue #1580",
                             change.Key);
                     }
 

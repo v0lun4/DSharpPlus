@@ -15,15 +15,15 @@ namespace DSharpPlus.AsyncEvents;
 public sealed class AsyncEvent<TSender, TArgs> : AsyncEvent
     where TArgs : AsyncEventArgs
 {
-    private readonly SemaphoreSlim _lock = new(1);
-    private readonly AsyncEventExceptionHandler<TSender, TArgs> _exceptionHandler;
-    private List<AsyncEventHandler<TSender, TArgs>> _handlers;
+    private readonly SemaphoreSlim @lock = new(1);
+    private readonly IClientErrorHandler errorHandler;
+    private List<AsyncEventHandler<TSender, TArgs>> handlers;
 
-    public AsyncEvent(string name, AsyncEventExceptionHandler<TSender, TArgs> exceptionHandler)
-        : base(name)
+    public AsyncEvent(IClientErrorHandler errorHandler)
+        : base(typeof(TArgs).ToString())
     {
-        _handlers = [];
-        _exceptionHandler = exceptionHandler;
+        this.handlers = [];
+        this.errorHandler = errorHandler;
     }
 
     /// <summary>
@@ -33,16 +33,20 @@ public sealed class AsyncEvent<TSender, TArgs> : AsyncEvent
     public void Register(AsyncEventHandler<TSender, TArgs> handler)
     {
         ArgumentNullException.ThrowIfNull(handler);
-        _lock.Wait();
+        this.@lock.Wait();
         try
         {
-            _handlers.Add(handler);
+            this.handlers.Add(handler);
         }
         finally
         {
-            _lock.Release();
+            this.@lock.Release();
         }
     }
+
+    // this serves as a stopgap solution until we address the shortcomings of event dispatch in DiscordClient
+    internal override void Register(Delegate @delegate)
+        => Register((AsyncEventHandler<TSender, TArgs>)@delegate);
 
     /// <summary>
     /// Unregisters a specific handler from this event.
@@ -51,14 +55,14 @@ public sealed class AsyncEvent<TSender, TArgs> : AsyncEvent
     public void Unregister(AsyncEventHandler<TSender, TArgs> handler)
     {
         ArgumentNullException.ThrowIfNull(handler);
-        _lock.Wait();
+        this.@lock.Wait();
         try
         {
-            _handlers.Remove(handler);
+            this.handlers.Remove(handler);
         }
         finally
         {
-            _lock.Release();
+            this.@lock.Release();
         }
     }
 
@@ -66,7 +70,7 @@ public sealed class AsyncEvent<TSender, TArgs> : AsyncEvent
     /// Unregisters all handlers from this event.
     /// </summary>
     public void UnregisterAll()
-        => _handlers = [];
+        => this.handlers = [];
 
     /// <summary>
     /// Raises this event, invoking all registered handlers in parallel.
@@ -75,14 +79,14 @@ public sealed class AsyncEvent<TSender, TArgs> : AsyncEvent
     /// <param name="args">The arguments passed to this event.</param>
     public async Task InvokeAsync(TSender sender, TArgs args)
     {
-        if (_handlers.Count == 0)
+        if (this.handlers.Count == 0)
         {
             return;
         }
 
-        await _lock.WaitAsync();
-        List<AsyncEventHandler<TSender, TArgs>> copiedHandlers = new(_handlers);
-        _lock.Release();
+        await this.@lock.WaitAsync();
+        List<AsyncEventHandler<TSender, TArgs>> copiedHandlers = new(this.handlers);
+        this.@lock.Release();
 
         _ = Task.WhenAll(copiedHandlers.Select(async (handler) =>
         {
@@ -92,7 +96,7 @@ public sealed class AsyncEvent<TSender, TArgs> : AsyncEvent
             }
             catch (Exception ex)
             {
-                _exceptionHandler?.Invoke(this, ex, handler, sender, args);
+                await this.errorHandler.HandleEventHandlerError(this.Name, ex, handler, sender, args);
             }
         }));
 

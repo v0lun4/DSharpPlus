@@ -12,14 +12,18 @@ public class BooleanConverter : ISlashArgumentConverter<bool>, ITextArgumentConv
     public string ReadableName => "Boolean (true/false)";
     public bool RequiresText => true;
 
-    public Task<Optional<bool>> ConvertAsync(TextConverterContext context, MessageCreateEventArgs eventArgs) => Task.FromResult(context.Argument.ToLowerInvariant() switch
+    /// <inheritdoc/>
+    public Task<Optional<bool>> ConvertAsync(TextConverterContext context, MessageCreatedEventArgs eventArgs) => Task.FromResult(context.Argument.ToLowerInvariant() switch
     {
         "true" or "yes" or "y" or "1" or "on" or "enable" or "enabled" or "t" => Optional.FromValue(true),
         "false" or "no" or "n" or "0" or "off" or "disable" or "disabled" or "f" => Optional.FromValue(false),
         _ => Optional.FromNoValue<bool>()
     });
 
-    public Task<Optional<bool>> ConvertAsync(InteractionConverterContext context, InteractionCreateEventArgs eventArgs) => bool.TryParse(context.Argument.RawValue, out bool result)
-        ? Task.FromResult(Optional.FromValue(result))
-        : Task.FromResult(Optional.FromNoValue<bool>());
+    public Task<Optional<bool>> ConvertAsync(InteractionConverterContext context, InteractionCreatedEventArgs eventArgs)
+    {
+        return bool.TryParse(context.Argument.RawValue, out bool result)
+            ? Task.FromResult(Optional.FromValue(result))
+            : Task.FromResult(Optional.FromNoValue<bool>());
+    }
 }

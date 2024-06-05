@@ -1,24 +1,40 @@
 using System.Collections.Generic;
+using System.Linq;
+
 using DSharpPlus.Commands.Converters;
+using DSharpPlus.Commands.Trees.Metadata;
 using DSharpPlus.Entities;
 
 namespace DSharpPlus.Commands.Processors.SlashCommands;
 
+/// <summary>
+/// Represents a context for interaction-based argument converters.
+/// </summary>
 public record InteractionConverterContext : ConverterContext
 {
+    /// <summary>
+    /// The underlying interaction.
+    /// </summary>
     public required DiscordInteraction Interaction { get; init; }
+
+    /// <summary>
+    /// The options passed to this command.
+    /// </summary>
     public required IReadOnlyList<DiscordInteractionDataOption> Options { get; init; }
-    public override DiscordInteractionDataOption Argument => Options[ParameterIndex];
-    public int ArgumentIndex { get; private set; } = -1;
 
-    public override bool NextArgument()
+    /// <summary>
+    /// The current argument to convert.
+    /// </summary>
+    public override DiscordInteractionDataOption? Argument
     {
-        if (ArgumentIndex + 1 >= Options.Count)
+        get
         {
-            return false;
+            SnakeCasedNameAttribute attribute = this.Parameter.Attributes.OfType<SnakeCasedNameAttribute>().Single();
+            return this.Options.SingleOrDefault(x => x.Name == attribute.Name);
         }
-
-        ArgumentIndex++;
-        return true;
     }
+
+    /// <inheritdoc/>
+    public override bool NextParameter() 
+        => this.Interaction.Data.Options is not null && base.NextParameter();
 }

@@ -22,21 +22,21 @@ public partial class DiscordSnowflakeObjectConverter : ISlashArgumentConverter<S
     {
         this.discordMemberSlashArgumentConverter = new DiscordMemberConverter(discordMemberSlashArgumentConverter ?? NullLogger<DiscordMemberConverter>.Instance);
         this.discordUserSlashArgumentConverter = new DiscordUserConverter(discordUserSlashArgumentConverter ?? NullLogger<DiscordUserConverter>.Instance);
-        discordRoleSlashArgumentConverter = new DiscordRoleConverter();
+        this.discordRoleSlashArgumentConverter = new DiscordRoleConverter();
     }
 
-    public async Task<Optional<SnowflakeObject>> ConvertAsync(InteractionConverterContext context, InteractionCreateEventArgs eventArgs)
+    public async Task<Optional<SnowflakeObject>> ConvertAsync(InteractionConverterContext context, InteractionCreatedEventArgs eventArgs)
     {
         //Checks through existing converters
-        if (await discordRoleSlashArgumentConverter.ConvertAsync(context, eventArgs) is Optional<DiscordRole> role && role.HasValue)
+        if (context.Interaction.Data.Resolved?.Roles is not null && await this.discordRoleSlashArgumentConverter.ConvertAsync(context, eventArgs) is Optional<DiscordRole> role && role.HasValue)
         {
             return Optional.FromValue<SnowflakeObject>(role.Value);
         }
-        else if (await discordMemberSlashArgumentConverter.ConvertAsync(context, eventArgs) is Optional<DiscordMember> member && member.HasValue)
+        else if (context.Interaction.Data.Resolved?.Members is not null && await this.discordMemberSlashArgumentConverter.ConvertAsync(context, eventArgs) is Optional<DiscordMember> member && member.HasValue)
         {
             return Optional.FromValue<SnowflakeObject>(member.Value);
         }
-        else if (await discordUserSlashArgumentConverter.ConvertAsync(context, eventArgs) is Optional<DiscordUser> user && user.HasValue)
+        else if (context.Interaction.Data.Resolved?.Members is not null && await this.discordUserSlashArgumentConverter.ConvertAsync(context, eventArgs) is Optional<DiscordUser> user && user.HasValue)
         {
             return Optional.FromValue<SnowflakeObject>(user.Value);
         }
@@ -45,18 +45,18 @@ public partial class DiscordSnowflakeObjectConverter : ISlashArgumentConverter<S
     }
 
     // Duplicated logic for overload resolving
-    public async Task<Optional<SnowflakeObject>> ConvertAsync(TextConverterContext context, MessageCreateEventArgs eventArgs)
+    public async Task<Optional<SnowflakeObject>> ConvertAsync(TextConverterContext context, MessageCreatedEventArgs eventArgs)
     {
         //Checks through existing converters
-        if (await discordRoleSlashArgumentConverter.ConvertAsync(context, eventArgs) is Optional<DiscordRole> role && role.HasValue)
+        if (context.Guild?.Roles is not null && await this.discordRoleSlashArgumentConverter.ConvertAsync(context, eventArgs) is Optional<DiscordRole> role && role.HasValue)
         {
             return Optional.FromValue<SnowflakeObject>(role.Value);
         }
-        else if (await discordMemberSlashArgumentConverter.ConvertAsync(context, eventArgs) is Optional<DiscordMember> member && member.HasValue)
+        else if (context.Guild?.Members is not null && await this.discordMemberSlashArgumentConverter.ConvertAsync(context, eventArgs) is Optional<DiscordMember> member && member.HasValue)
         {
             return Optional.FromValue<SnowflakeObject>(member.Value);
         }
-        else if (await discordUserSlashArgumentConverter.ConvertAsync(context, eventArgs) is Optional<DiscordUser> user && user.HasValue)
+        else if (context.Guild?.Members is not null && await this.discordUserSlashArgumentConverter.ConvertAsync(context, eventArgs) is Optional<DiscordUser> user && user.HasValue)
         {
             return Optional.FromValue<SnowflakeObject>(user.Value);
         }

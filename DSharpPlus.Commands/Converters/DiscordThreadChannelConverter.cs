@@ -13,13 +13,13 @@ namespace DSharpPlus.Commands.Converters;
 public partial class DiscordThreadChannelConverter : ISlashArgumentConverter<DiscordThreadChannel>, ITextArgumentConverter<DiscordThreadChannel>
 {
     [GeneratedRegex(@"^<#(\d+)>$", RegexOptions.Compiled | RegexOptions.ECMAScript)]
-    private static partial Regex _getChannelRegex();
+    private static partial Regex getChannelRegex();
 
     public DiscordApplicationCommandOptionType ParameterType => DiscordApplicationCommandOptionType.Channel;
     public string ReadableName => "Discord Thread";
     public bool RequiresText => true;
 
-    public Task<Optional<DiscordThreadChannel>> ConvertAsync(TextConverterContext context, MessageCreateEventArgs eventArgs)
+    public Task<Optional<DiscordThreadChannel>> ConvertAsync(TextConverterContext context, MessageCreatedEventArgs eventArgs)
     {
         if (context.Guild is null)
         {
@@ -29,7 +29,7 @@ public partial class DiscordThreadChannelConverter : ISlashArgumentConverter<Dis
         if (!ulong.TryParse(context.Argument, CultureInfo.InvariantCulture, out ulong channelId))
         {
             // value can be a raw channel id or a channel mention. The regex will match both.
-            Match match = _getChannelRegex().Match(context.Argument);
+            Match match = getChannelRegex().Match(context.Argument);
             if (!match.Success || !ulong.TryParse(match.Captures[0].ValueSpan, NumberStyles.Number, CultureInfo.InvariantCulture, out channelId))
             {
                 // Attempt to find a thread channel by name, case sensitive.
@@ -43,7 +43,7 @@ public partial class DiscordThreadChannelConverter : ISlashArgumentConverter<Dis
             : Task.FromResult(Optional.FromNoValue<DiscordThreadChannel>());
     }
 
-    public Task<Optional<DiscordThreadChannel>> ConvertAsync(InteractionConverterContext context, InteractionCreateEventArgs eventArgs) => context.Interaction.Data.Resolved is null
+    public Task<Optional<DiscordThreadChannel>> ConvertAsync(InteractionConverterContext context, InteractionCreatedEventArgs eventArgs) => context.Interaction.Data.Resolved is null
         || !ulong.TryParse(context.Argument.RawValue, CultureInfo.InvariantCulture, out ulong channelId)
         || !context.Interaction.Data.Resolved.Channels.TryGetValue(channelId, out DiscordChannel? channel)
             ? Task.FromResult(Optional.FromNoValue<DiscordThreadChannel>())

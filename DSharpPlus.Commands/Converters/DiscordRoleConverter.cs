@@ -13,13 +13,13 @@ namespace DSharpPlus.Commands.Converters;
 public partial class DiscordRoleConverter : ISlashArgumentConverter<DiscordRole>, ITextArgumentConverter<DiscordRole>
 {
     [GeneratedRegex(@"^<@&(\d+?)>$", RegexOptions.Compiled | RegexOptions.ECMAScript)]
-    private static partial Regex _getRoleRegex();
+    private static partial Regex getRoleRegex();
 
     public DiscordApplicationCommandOptionType ParameterType => DiscordApplicationCommandOptionType.Role;
     public string ReadableName => "Discord Role";
     public bool RequiresText => true;
 
-    public Task<Optional<DiscordRole>> ConvertAsync(TextConverterContext context, MessageCreateEventArgs eventArgs)
+    public Task<Optional<DiscordRole>> ConvertAsync(TextConverterContext context, MessageCreatedEventArgs eventArgs)
     {
         if (context.Guild is null)
         {
@@ -29,7 +29,7 @@ public partial class DiscordRoleConverter : ISlashArgumentConverter<DiscordRole>
         if (!ulong.TryParse(context.Argument, CultureInfo.InvariantCulture, out ulong roleId))
         {
             // value can be a raw channel id or a channel mention. The regex will match both.
-            Match match = _getRoleRegex().Match(context.Argument);
+            Match match = getRoleRegex().Match(context.Argument);
             if (!match.Success || !ulong.TryParse(match.Groups[1].ValueSpan, NumberStyles.Number, CultureInfo.InvariantCulture, out roleId))
             {
                 // Attempt to find a role by name, case sensitive.
@@ -43,7 +43,7 @@ public partial class DiscordRoleConverter : ISlashArgumentConverter<DiscordRole>
             : Task.FromResult(Optional.FromNoValue<DiscordRole>());
     }
 
-    public Task<Optional<DiscordRole>> ConvertAsync(InteractionConverterContext context, InteractionCreateEventArgs eventArgs) => context.Interaction.Data.Resolved is null
+    public Task<Optional<DiscordRole>> ConvertAsync(InteractionConverterContext context, InteractionCreatedEventArgs eventArgs) => context.Interaction.Data.Resolved is null
         || !ulong.TryParse(context.Argument.RawValue, CultureInfo.InvariantCulture, out ulong roleId)
         || !context.Interaction.Data.Resolved.Roles.TryGetValue(roleId, out DiscordRole? role)
             ? Task.FromResult(Optional.FromNoValue<DiscordRole>())

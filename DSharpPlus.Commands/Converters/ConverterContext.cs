@@ -2,24 +2,42 @@ using DSharpPlus.Commands.Trees;
 
 namespace DSharpPlus.Commands.Converters;
 
+/// <summary>
+/// Represents context provided to argument converters.
+/// </summary>
 public abstract record ConverterContext : AbstractContext
 {
+    /// <summary>
+    /// The value of the current raw argument.
+    /// </summary>
     public virtual object? Argument { get; protected set; }
-    public int ParameterIndex { get; private set; } = -1;
-    public CommandParameter Parameter => Command.Parameters[ParameterIndex];
 
-    public bool NextParameter()
+    /// <summary>
+    /// The index of the current parameter.
+    /// </summary>
+    public int ParameterIndex { get; private set; } = -1;
+
+    /// <summary>
+    /// The current parameter.
+    /// </summary>
+    public CommandParameter Parameter => this.Command.Parameters[this.ParameterIndex];
+
+    /// <summary>
+    /// Advances to the next parameter, returning a value indicating whether there was another parameter.
+    /// </summary>
+    public virtual bool NextParameter()
     {
-        if (ParameterIndex + 1 >= Command.Parameters.Count)
+        if (this.ParameterIndex + 1 >= this.Command.Parameters.Count)
         {
             return false;
         }
 
-        ParameterIndex++;
+        this.ParameterIndex++;
         return true;
     }
 
-    public abstract bool NextArgument();
-
+    /// <summary>
+    /// Short-hand for converting to a more specific converter context type.
+    /// </summary>
     public T As<T>() where T : ConverterContext => (T)this;
 }

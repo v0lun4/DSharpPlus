@@ -21,37 +21,39 @@ public async Task Main(string[] args)
         Environment.Exit(1);
     }
 
-    DiscordShardedClient discordClient = new(new DiscordConfiguration()
-    {
-        Token = discordToken,
-        Intents = TextCommandProcessor.RequiredIntents | SlashCommandProcessor.RequiredIntents
-    });
+    DiscordClientBuilder builder = DiscordClientBuilder.CreateDefault(discordToken, TextCommandProcessor.RequiredIntents | SlashCommandProcessor.RequiredIntents);
+    DiscordClient discordClient = builder.Build();
 
     // Use the commands extension
-    IReadOnlyDictionary<int, CommandsExtension> commandsExtensions = await discordClient.UseCommandsAsync(new CommandsConfiguration()
+    CommandsExtension commandsExtension = discordClient.UseCommands(new CommandsConfiguration()
     {
-        ServiceProvider = serviceProvider,
         DebugGuildId = Environment.GetEnvironmentVariable("DEBUG_GUILD_ID") ?? 0,
         // The default value, however it's shown here for clarity
         RegisterDefaultCommandProcessors = true
     });
 
-    // Iterate through each Discord shard
-    foreach (CommandsExtension commandsExtension in commandsExtensions.Values)
+    // Add all commands by scanning the current assembly
+    commandsExtension.AddCommands(typeof(Program).Assembly);
+    TextCommandProcessor textCommandProcessor = new(new()
     {
-        // Add all commands by scanning the current assembly
-        commandsExtension.AddCommands(typeof(Program).Assembly);
-        TextCommandProcessor textCommandProcessor = new(new()
-        {
-            // By default, the prefix will be "!"
-            // However the bot will *always* respond to a direct mention
-            // as long as the `DefaultPrefixResolver` is used
-            PrefixResolver = new DefaultPrefixResolver("?").ResolvePrefixAsync
-        });
+        // The default behavior is that the bot reacts to direct mentions
+        // and to the "!" prefix.
+        // If you want to change it, you first set if the bot should react to mentions
+        // and then you can provide as many prefixes as you want.
+        PrefixResolver = new DefaultPrefixResolver(true, "?", "&").ResolvePrefixAsync
+    });
 
-        // Add text commands with a custom prefix (?ping)
-        await commandsExtension.AddProcessorsAsync(textCommandProcessor);
-    }
+    // Add text commands with a custom prefix (?ping)
+    await commandsExtension.AddProcessorsAsync(textCommandProcessor);
+
+    // We can specify a status for our bot. Let's set it to "playing" and set the activity to "with fire".
+    DiscordActivity status = new("with fire", DiscordActivityType.Playing);
+
+    // Now we connect and log in.
+    await discordClient.ConnectAsync(status, DiscordUserStatus.Online);
+
+    // And now we wait infinitely so that our bot actually stays connected.
+    await Task.Delay(-1);
 }
 ```
 
@@ -59,62 +61,59 @@ public async Task Main(string[] args)
 In the main logic of your program, we're going to register the `DiscordClient` to your service provider. I've chosen to do it like such:
 
 ```cs
-serviceCollection.AddSingleton(_ =>
+string discordToken = Environment.GetEnvironmentVariable("DISCORD_TOKEN");
+
+if (string.IsNullOrWhiteSpace(discordToken))
 {
-    string discordToken = Environment.GetEnvironmentVariable("DISCORD_TOKEN");
-    if (string.IsNullOrWhiteSpace(discordToken))
-    {
-        Console.WriteLine("Error: No discord token found. Please provide a token via the DISCORD_TOKEN environment variable.");
-        Environment.Exit(1);
-    }
+    Console.WriteLine("Error: No discord token found. Please provide a token via the DISCORD_TOKEN environment variable.");
+    Environment.Exit(1);
+}
 
-    DiscordShardedClient discordClient = new(new DiscordConfiguration()
-    {
-        Token = discordToken,
-        Intents = TextCommandProcessor.RequiredIntents | SlashCommandProcessor.RequiredIntents
-    });
-
-    return discordClient;
-});
+serviceCollection.AddDiscordClient(discordToken, TextCommandProcessor.RequiredIntents | SlashCommandProcessor.RequiredIntents);
 ```
 
 And when your program actually starts, you'll want to register the command framework:
 
 ```cs
-DiscordShardedClient discordClient = serviceProvider.GetRequiredService<DiscordShardedClient>();
+DiscordClient discordClient = serviceProvider.GetRequiredService<DiscordClient>();
 
 // Register extensions outside of the service provider lambda since these involve asynchronous operations
-IReadOnlyDictionary<int, CommandsExtension> commandsExtensions = await discordClient.UseCommandsAsync(new CommandsConfiguration()
+CommandsExtension commandsExtensions = discordClient.UseCommands(new CommandsConfiguration()
 {
-    ServiceProvider = serviceProvider,
     DebugGuildId = Environment.GetEnvironmentVariable("DEBUG_GUILD_ID") ?? 0,
     // The default value, however it's shown here for clarity
     RegisterDefaultCommandProcessors = true
 });
 
-// Iterate through each Discord shard
-foreach (CommandsExtension commandsExtension in commandsExtensions.Values)
+// Add all commands by scanning the current assembly
+commandsExtension.AddCommands(typeof(Program).Assembly);
+TextCommandProcessor textCommandProcessor = new(new()
 {
-    // Add all commands by scanning the current assembly
-    commandsExtension.AddCommands(typeof(Program).Assembly);
-    TextCommandProcessor textCommandProcessor = new(new()
-    {
-        // By default, the prefix will be "!"
-        // However the bot will *always* respond to a direct mention
-        // as long as the `DefaultPrefixResolver` is used
-        PrefixResolver = new DefaultPrefixResolver("?").ResolvePrefixAsync
-    });
+    // The default behavior is that the bot reacts to direct mentions
+    // and to the "!" prefix.
+    // If you want to change it, you first set if the bot should react to mentions
+    // and then you can provide as many prefixes as you want.
+    PrefixResolver = new DefaultPrefixResolver(true, "?", "&").ResolvePrefixAsync
+});
 
-    // Add text commands with a custom prefix (?ping)
-    await commandsExtension.AddProcessorsAsync(textCommandProcessor);
-}
+// Add text commands with a custom prefix (?ping)
+await commandsExtension.AddProcessorsAsync(textCommandProcessor);
+
+// We can specify a status for our bot. Let's set it to "playing" and set the activity to "with fire".
+DiscordActivity status = new("with fire", DiscordActivityType.Playing);
+
+// Now we connect and log in.
+await discordClient.ConnectAsync(status, DiscordUserStatus.Online);
+
+// And now we wait infinitely so that our bot actually stays connected.
+await Task.Delay(-1);
+
 ```
 
 ---
 
 Let's break this down a bit:
 - We use each processor's required intents to ensure that the extension receives the necessary gateway events and data to function properly.
-- Because we're using a `DiscordShardedClient`, we must call `UseCommandsAsync` instead of `UseCommands`. This is because `UseCommandsAsync` will return a dictionary of `CommandsExtension` objects, one for each shard. The number of shards returned is usually set by Discord, however it can be specified manually in the `DiscordConfiguration`.
 - We register all the commands in our bot by passing the bot's assembly to `AddCommands`. This will scan the assembly for any classes (group commands) or methods that have the `Command` attribute, and register them as commands.
 - We register the `TextCommandProcessor` processor with a custom prefix resolver.
 

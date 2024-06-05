@@ -116,10 +116,10 @@ public sealed class DiscordApplicationCommandOption
     {
         if (!Utilities.IsValidSlashCommandName(name))
         {
-            throw new ArgumentException("Invalid slash command option name specified. It must be below 32 characters and not contain any whitespace.", nameof(name));
+            throw new ArgumentException($"Invalid slash command option name specified: {name}. It must be below 32 characters and not contain any whitespace.", nameof(name));
         }
 
-        if (name.Any(ch => char.IsUpper(ch)))
+        if (name.Any(char.IsUpper))
         {
             throw new ArgumentException("Slash command option name cannot have any upper case characters.", nameof(name));
         }
@@ -138,19 +138,19 @@ public sealed class DiscordApplicationCommandOption
         ReadOnlyCollection<DiscordApplicationCommandOption>? optionList = options != null ? new ReadOnlyCollection<DiscordApplicationCommandOption>(options.ToList()) : null;
         ReadOnlyCollection<DiscordChannelType>? channelTypeList = channelTypes != null ? new ReadOnlyCollection<DiscordChannelType>(channelTypes.ToList()) : null;
 
-        Name = name;
-        Description = description;
-        Type = type;
-        AutoComplete = autocomplete;
-        Required = required;
-        Choices = choiceList;
-        Options = optionList;
-        ChannelTypes = channelTypeList;
-        MinValue = minValue;
-        MaxValue = maxValue;
-        MinLength = minLength;
-        MaxLength = maxLength;
-        NameLocalizations = name_localizations;
-        DescriptionLocalizations = description_localizations;
+        this.Name = name;
+        this.Description = description;
+        this.Type = type;
+        this.AutoComplete = autocomplete;
+        this.Required = required;
+        this.Choices = choiceList;
+        this.Options = optionList;
+        this.ChannelTypes = channelTypeList;
+        this.MinValue = minValue;
+        this.MaxValue = maxValue;
+        this.MinLength = minLength;
+        this.MaxLength = maxLength;
+        this.NameLocalizations = name_localizations;
+        this.DescriptionLocalizations = description_localizations;
     }
 }

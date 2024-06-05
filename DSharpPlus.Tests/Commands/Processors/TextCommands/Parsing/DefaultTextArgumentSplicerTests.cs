@@ -10,18 +10,16 @@ namespace DSharpPlus.Tests.Commands.Processors.TextCommands.Parsing;
 
 public sealed class DefaultTextArgumentSplicerTests
 {
-    private static CommandsExtension _extension = null!;
+    private static CommandsExtension extension = null!;
 
     [OneTimeSetUp]
     public static async Task CreateExtensionAsync()
     {
-        DiscordClient client = new(new DiscordConfiguration()
-        {
-            Token = "FakeToken",
-        });
+        DiscordClientBuilder builder = DiscordClientBuilder.CreateDefault("faketoken", DiscordIntents.None);
+        DiscordClient client = builder.Build();
 
-        _extension = client.UseCommands();
-        await _extension.AddProcessorAsync(new TextCommandProcessor());
+        extension = client.UseCommands();
+        await extension.AddProcessorAsync(new TextCommandProcessor());
     }
 
     [TestCaseSource(typeof(UserInput), nameof(UserInput.ExpectedNormal), null)]
@@ -31,7 +29,7 @@ public sealed class DefaultTextArgumentSplicerTests
         int position = 0;
         while (true)
         {
-            string? argument = DefaultTextArgumentSplicer.Splice(_extension, input, ref position);
+            string? argument = DefaultTextArgumentSplicer.Splice(extension, input, ref position);
             if (argument is null)
             {
                 break;
@@ -51,7 +49,7 @@ public sealed class DefaultTextArgumentSplicerTests
         int position = 0;
         while (true)
         {
-            string? argument = DefaultTextArgumentSplicer.Splice(_extension, input, ref position);
+            string? argument = DefaultTextArgumentSplicer.Splice(extension, input, ref position);
             if (argument is null)
             {
                 break;
@@ -71,7 +69,7 @@ public sealed class DefaultTextArgumentSplicerTests
         int position = 0;
         while (true)
         {
-            string? argument = DefaultTextArgumentSplicer.Splice(_extension, input, ref position);
+            string? argument = DefaultTextArgumentSplicer.Splice(extension, input, ref position);
             if (argument is null)
             {
                 break;
@@ -91,7 +89,7 @@ public sealed class DefaultTextArgumentSplicerTests
         int position = 0;
         while (true)
         {
-            string? argument = DefaultTextArgumentSplicer.Splice(_extension, input, ref position);
+            string? argument = DefaultTextArgumentSplicer.Splice(extension, input, ref position);
             if (argument is null)
             {
                 break;
@@ -111,7 +109,7 @@ public sealed class DefaultTextArgumentSplicerTests
         int position = 0;
         while (true)
         {
-            string? argument = DefaultTextArgumentSplicer.Splice(_extension, input, ref position);
+            string? argument = DefaultTextArgumentSplicer.Splice(extension, input, ref position);
             if (argument is null)
             {
                 break;
@@ -125,5 +123,5 @@ public sealed class DefaultTextArgumentSplicerTests
     }
 
     [OneTimeTearDown]
-    public static void DisposeExtension() => _extension.Dispose();
+    public static void DisposeExtension() => extension.Dispose();
 }

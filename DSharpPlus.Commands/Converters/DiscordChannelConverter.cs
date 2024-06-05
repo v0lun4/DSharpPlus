@@ -13,19 +13,19 @@ namespace DSharpPlus.Commands.Converters;
 public partial class DiscordChannelConverter : ISlashArgumentConverter<DiscordChannel>, ITextArgumentConverter<DiscordChannel>
 {
     [GeneratedRegex(@"^<#(\d+)>$", RegexOptions.Compiled | RegexOptions.ECMAScript)]
-    private static partial Regex _getChannelRegex();
+    private static partial Regex getChannelRegex();
 
     public DiscordApplicationCommandOptionType ParameterType => DiscordApplicationCommandOptionType.Channel;
     public string ReadableName => "Discord Channel";
     public bool RequiresText => true;
 
-    public Task<Optional<DiscordChannel>> ConvertAsync(TextConverterContext context, MessageCreateEventArgs eventArgs)
+    public Task<Optional<DiscordChannel>> ConvertAsync(TextConverterContext context, MessageCreatedEventArgs eventArgs)
     {
         // Attempt to parse the channel id
         if (!ulong.TryParse(context.Argument, CultureInfo.InvariantCulture, out ulong channelId))
         {
             // Value could be a channel mention.
-            Match match = _getChannelRegex().Match(context.Argument);
+            Match match = getChannelRegex().Match(context.Argument);
             if (!match.Success || !ulong.TryParse(match.Groups[1].ValueSpan, NumberStyles.Number, CultureInfo.InvariantCulture, out channelId))
             {
                 // Attempt to find a channel by name, case insensitive.
@@ -52,7 +52,7 @@ public partial class DiscordChannelConverter : ISlashArgumentConverter<DiscordCh
         return Task.FromResult(Optional.FromNoValue<DiscordChannel>());
     }
 
-    public Task<Optional<DiscordChannel>> ConvertAsync(InteractionConverterContext context, InteractionCreateEventArgs eventArgs) => context.Interaction.Data.Resolved is null
+    public Task<Optional<DiscordChannel>> ConvertAsync(InteractionConverterContext context, InteractionCreatedEventArgs eventArgs) => context.Interaction.Data.Resolved is null
         || !ulong.TryParse(context.Argument.RawValue, CultureInfo.InvariantCulture, out ulong channelId)
         || !context.Interaction.Data.Resolved.Channels.TryGetValue(channelId, out DiscordChannel? channel)
             ? Task.FromResult(Optional.FromNoValue<DiscordChannel>())

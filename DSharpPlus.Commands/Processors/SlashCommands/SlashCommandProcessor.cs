@@ -189,6 +189,39 @@ public sealed partial class SlashCommandProcessor : BaseCommandProcessor<Interac
         return true;
     }
 
+    //CUSTOM FUNCTION!!! THIS IS HIGHLY EXPERIMENTAL
+    public async ValueTask UpdateCommandsAsync(CommandsExtension extension, DiscordClient client)
+    {
+        await base.ConfigureAsync(extension);
+        // if (client.ShardId == 0)
+        // {
+        //     await this.RegisterSlashCommandsAsync(extension);
+        // }
+        await RegisterSlashCommandsAsync(extension);
+    }
+
+    //CUSTOM FUNCTION!!! THIS IS HIGHLY EXPERIMENTAL
+    public async ValueTask DeleteGlobalDiscordSlashCommandAsync(ulong commandID)
+    {
+        if (this.extension is null)
+        {
+            throw new InvalidOperationException("SlashCommandProcessor has not been configured.");
+        }
+
+        await this.extension.Client.DeleteGlobalApplicationCommandAsync(commandID);
+    }
+
+    //CUSTOM FUNCTION!!! THIS IS HIGHLY EXPERIMENTAL
+    public async ValueTask DeleteGuildDiscordSlashCommandAsync(ulong guildID, ulong commandID) 
+    {
+        if (this.extension is null)
+        {
+            throw new InvalidOperationException("SlashCommandProcessor has not been configured.");
+        }
+
+        await this.extension.Client.DeleteGuildApplicationCommandAsync(guildID, commandID);
+    }
+
     public void AddApplicationCommands(params DiscordApplicationCommand[] commands) => applicationCommands.AddRange(commands);
     public void AddApplicationCommands(IEnumerable<DiscordApplicationCommand> commands) => applicationCommands.AddRange(commands);
 

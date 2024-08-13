@@ -169,6 +169,24 @@ public sealed class CommandsExtension
         AddParameterCheck<TextChannelTypesCheck>();
     }
 
+    //CUSTOM FUNCTION!!! THIS IS HIGHLY EXPERIMENTAL
+    public void RemoveCommand(CommandBuilder command)
+    {
+        CommandBuilder? tmp = this.commandBuilders.Where(p => p.Name == command.Name).FirstOrDefault();
+        if (tmp is null)
+        {
+            return;
+        }
+        ((IList<CommandBuilder>)this.commandBuilders).Remove(tmp);
+    }
+
+    public void RemoveCommand(Delegate commandDelegate) => this.commandBuilders.Remove(CommandBuilder.From(commandDelegate)); //CUSTOM FUNCTION!!! THIS IS HIGHLY EXPERIMENTAL
+    //public void RemoveCommands(IEnumerable<CommandBuilder> commands) => this._commandBuilders.RemoveRange(commands); //CUSTOM FUNCTION!!! THIS IS HIGHLY EXPERIMENTAL
+    //public void RemoveCommands(Assembly assembly) => this.RemoveCommands(assembly.GetTypes()); //CUSTOM FUNCTION!!! THIS IS HIGHLY EXPERIMENTAL
+    //public void RemoveCommands(params CommandBuilder[] commands) => this._commandBuilders.RemoveAll(commands); //CUSTOM FUNCTION!!! THIS IS HIGHLY EXPERIMENTAL
+    public void RemoveCommands(Type type) => this.commandBuilders.Remove(CommandBuilder.From(type)); //CUSTOM FUNCTION!!! THIS IS HIGHLY EXPERIMENTAL
+    public void RemoveCommands<T>() => this.commandBuilders.Remove(CommandBuilder.From<T>()); //CUSTOM FUNCTION!!! THIS IS HIGHLY EXPERIMENTAL
+
     public void AddCommand(Delegate commandDelegate) => this.commandBuilders.Add(CommandBuilder.From(commandDelegate));
     public void AddCommand(Delegate commandDelegate, params ulong[] guildIds) => this.commandBuilders.Add(CommandBuilder.From(commandDelegate, guildIds));
 

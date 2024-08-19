@@ -168,6 +168,9 @@ public sealed class MultiShardOrchestrator : IShardOrchestrator
     }
 
     /// <inheritdoc/>
+    public async ValueTask ReconnectAsync(int shardId) => await this.shards[shardId].ReconnectAsync();
+
+    /// <inheritdoc/>
     public async ValueTask SendOutboundEventAsync(byte[] payload, ulong guildId)
     {
         if (guildId == 0)

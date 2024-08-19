@@ -54,6 +54,9 @@ public sealed class SingleShardOrchestrator : IShardOrchestrator
     /// <inheritdoc/>
     public async ValueTask ReconnectAsync() => await this.gatewayClient.ReconnectAsync();
 
+    /// <inheritdoc/>
+    public async ValueTask ReconnectAsync(int shardID) => await this.gatewayClient.ReconnectAsync();
+
     // guild ID doesn't matter here, since we only have a single shard
     /// <summary>
     /// Sends an outbound event to Discord.

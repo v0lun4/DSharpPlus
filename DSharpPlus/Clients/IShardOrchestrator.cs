@@ -26,6 +26,11 @@ public interface IShardOrchestrator
     public ValueTask ReconnectAsync();
 
     /// <summary>
+    /// Reconnects specific shard associated with this orchestrator.
+    /// </summary>
+    public ValueTask ReconnectAsync(int shardId);
+
+    /// <summary>
     /// Sends an outbound event to Discord from the specified guild. Pass 0 to send a guild-independent outbound event
     /// to shard 0.
     /// </summary>

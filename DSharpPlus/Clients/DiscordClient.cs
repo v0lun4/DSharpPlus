@@ -200,6 +200,12 @@ public sealed partial class DiscordClient : BaseDiscordClient
         => await this.orchestrator.ReconnectAsync();
 
     /// <summary>
+    /// Reconnects individual shard to the gateway.
+    /// </summary>
+    public async Task ReconnectAsync(int shardId)
+        => await this.orchestrator.ReconnectAsync(shardId);
+
+    /// <summary>
     /// Disconnects from the gateway
     /// </summary>
     /// <returns></returns>

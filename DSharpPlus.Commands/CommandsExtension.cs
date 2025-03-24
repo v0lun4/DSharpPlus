@@ -221,6 +221,40 @@ public sealed class CommandsExtension
         }
     }
 
+    public void RemoveCommand(CommandBuilder command) => this.commandBuilders.Remove(command);
+    public void RemoveCommand(Delegate commandDelegate, params ulong[] guildIds) => this.commandBuilders.Remove(CommandBuilder.From(commandDelegate, guildIds));
+    public void RemoveCommand(Delegate commandDelegate) => this.commandBuilders.Remove(CommandBuilder.From(commandDelegate));
+    public void RemoveCommand(Type type, params ulong[] guildIds) => this.commandBuilders.Remove(CommandBuilder.From(type, guildIds));
+    public void RemoveCommand(Type type) => this.commandBuilders.Remove(CommandBuilder.From(type));
+    public void RemoveCommand(Assembly assembly, params ulong[] guildIds) => RemoveCommand(assembly.GetTypes(), guildIds);
+    public void RemoveCommand(Assembly assembly) => RemoveCommand(assembly.GetTypes());
+    public void RemoveCommand(IEnumerable<CommandBuilder> commands) => this.commandBuilders.AddRange(commands);
+    public void RemoveCommand(IEnumerable<Type> types) => RemoveCommand(types, []);
+    public void RemoveCommand(params CommandBuilder[] commands) => this.commandBuilders.AddRange(commands);
+    //public void RemoveCommand(Type type, params ulong[] guildIds) => RemoveCommand([type], guildIds);
+    //public void RemoveCommand(Type type) => RemoveCommand([type]);
+    public void RemoveCommand<T>() => RemoveCommand([typeof(T)]);
+    public void RemoveCommand<T>(params ulong[] guildIds) => RemoveCommand([typeof(T)], guildIds);
+    public void RemoveCommand(IEnumerable<Type> types, params ulong[] guildIds)
+    {
+        foreach (Type type in types)
+        {
+            if (type.GetCustomAttribute<CommandAttribute>() is not null)
+            {
+                this.commandBuilders.Remove(CommandBuilder.From(type, guildIds));
+                continue;
+            }
+
+            foreach (MethodInfo method in type.GetMethods())
+            {
+                if (method.GetCustomAttribute<CommandAttribute>() is not null)
+                {
+                    this.commandBuilders.Remove(CommandBuilder.From(method, guildIds: guildIds));
+                }
+            }
+        }
+    }
+
     /// <summary>
     /// Gets a list of commands filtered for a specific command processor
     /// </summary>

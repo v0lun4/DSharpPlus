@@ -4,7 +4,7 @@
       "src": [
         {
           "src": "../",
-          "files": "**.sln",
+          "files": "**.slnx",
           "exclude": [
             "**/obj/**",
             "_site/**"
@@ -39,6 +39,9 @@
           "_site/**"
         ]
       }
+    ],
+    "xref": [
+      "https://learn.microsoft.com/en-us/dotnet/.xrefmap.json"
     ],
     "resource": [
       {
@@ -76,7 +79,8 @@
     "fileMetadataFiles": [],
     "template": [
       "default",
-      "modern"
+      "modern",
+      "templates/dsharpplus"
     ],
     "postProcessors": [
       "ExtractSearchIndex"

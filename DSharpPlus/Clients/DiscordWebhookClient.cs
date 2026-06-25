@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Linq;
 using System.Net;
@@ -9,7 +8,6 @@ using System.Threading.Tasks;
 using DSharpPlus.Entities;
 using DSharpPlus.Exceptions;
 using DSharpPlus.Logging;
-using DSharpPlus.Metrics;
 using DSharpPlus.Net;
 using Microsoft.Extensions.Logging;
 
@@ -41,7 +39,7 @@ public partial class DiscordWebhookClient
     public string AvatarUrl { get; set; }
 
     internal List<DiscordWebhook> hooks;
-    internal DiscordApiClient apiclient;
+    internal DiscordRestApiClient apiclient;
 
     internal LogLevel minimumLogLevel;
     internal string logTimestampFormat;
@@ -77,9 +75,9 @@ public partial class DiscordWebhookClient
 
         TimeSpan parsedTimeout = timeout ?? TimeSpan.FromSeconds(10);
 
-        this.apiclient = new DiscordApiClient(parsedTimeout, this.Logger);
+        this.apiclient = new DiscordRestApiClient(parsedTimeout, this.Logger);
         this.hooks = [];
-        this.Webhooks = new ReadOnlyCollection<DiscordWebhook>(this.hooks);
+        this.Webhooks = this.hooks;
     }
 
     /// <summary>
@@ -107,10 +105,6 @@ public partial class DiscordWebhookClient
 
         return wh;
     }
-
-    /// <inheritdoc cref="RestClient.GetRequestMetrics(bool)"/>
-    public RequestMetricsCollection GetRequestMetrics(bool sinceLastCall = false)
-        => this.apiclient.GetRequestMetrics(sinceLastCall);
 
     /// <summary>
     /// Registers a webhook with this client. This retrieves a webhook from webhook URL.

@@ -91,7 +91,7 @@ public sealed class DiscordClientBuilder
         DiscordClientBuilder builder = new(serviceCollection);
         builder.serviceCollection.Configure<ShardingOptions>(x => x.ShardCount = shardCount);
         builder.serviceCollection.Configure<TokenContainer>(x => x.GetToken = () => token);
-        builder.serviceCollection.AddDSharpPlusDefaultsSharded(intents);
+        builder.serviceCollection.AddDSharpPlusDefaultsMultiShard(intents);
 
         builder.sharding = true;
 
@@ -231,17 +231,6 @@ public sealed class DiscordClientBuilder
     public DiscordClientBuilder ConfigureExtraFeatures(Action<DiscordConfiguration> configure)
     {
         this.serviceCollection.Configure(configure);
-        return this;
-    }
-
-    /// <summary>
-    /// Instructs DSharpPlus to try reconnecting when encountering a fatal gateway error. By default, DSharpPlus will
-    /// leave the decision on fatal gateway errors to the user.
-    /// </summary>
-    /// <returns>The current instance for chaining.</returns>
-    public DiscordClientBuilder SetReconnectOnFatalGatewayErrors()
-    {
-        this.serviceCollection.AddOrReplace<IGatewayController, ReconnectingGatewayController>(ServiceLifetime.Singleton);
         return this;
     }
 

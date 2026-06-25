@@ -66,6 +66,9 @@ then click the `Install` button to the right (after verifing that you will be in
 
 ![Install DSharpPlus][10]
 
+>[!NOTE]
+> Please activate the 'Include prerelease' checkbox and use v5.0 nightlies instead of v4.5.X. v5.0 is a major rewrite of the library and no support will be provided for v4.5.X.
+
 You're now ready to write some code!
 
 ## First Lines of Code
@@ -168,7 +171,7 @@ Then, add an `if` statement into the body of your event lambda that will check i
 ```cs
 builder.ConfigureEventHandlers
 (
-    b => b.HandleMessageCreated(async s, e) => 
+    b => b.HandleMessageCreated(async (s, e) => 
     {
         if (e.Message.Content.ToLower().StartsWith("ping"))
         {

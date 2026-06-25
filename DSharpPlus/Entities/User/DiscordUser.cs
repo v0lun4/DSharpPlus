@@ -32,6 +32,7 @@ public class DiscordUser : SnowflakeObject, IEquatable<DiscordUser>
         this.Locale = transport.Locale;
         this.Flags = transport.Flags;
         this.OAuthFlags = transport.OAuthFlags;
+        this.PrimaryGuild = transport.PrimaryGuild;
     }
 
     /// <summary>
@@ -48,7 +49,7 @@ public class DiscordUser : SnowflakeObject, IEquatable<DiscordUser>
     /// Nicknames in servers however still take precedence over global names, which take precedence over usernames.
     /// </remarks>
     [JsonProperty("global_name", NullValueHandling = NullValueHandling.Ignore)]
-    public virtual string GlobalName { get; internal set; }
+    public virtual string? GlobalName { get; internal set; }
 
     /// <summary>
     /// Gets the user's 4-digit discriminator.
@@ -160,6 +161,12 @@ public class DiscordUser : SnowflakeObject, IEquatable<DiscordUser>
     /// </summary>
     [JsonProperty("public_flags", NullValueHandling = NullValueHandling.Ignore)]
     public virtual DiscordUserFlags? Flags { get; internal set; }
+    
+    /// <summary>
+    /// The user's primary guild also known as the "guild tag".
+    /// </summary>
+    [JsonProperty("primary_guild", NullValueHandling = NullValueHandling.Ignore)]
+    public virtual DiscordUserPrimaryGuild? PrimaryGuild { get; internal set; }
 
     /// <summary>
     /// Gets the user's mention string.

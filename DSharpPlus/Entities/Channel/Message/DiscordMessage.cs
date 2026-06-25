@@ -52,13 +52,23 @@ public class DiscordMessage : SnowflakeObject, IEquatable<DiscordMessage>
         this.EditedTimestamp = other.EditedTimestamp;
         this.Id = other.Id;
         this.IsTTS = other.IsTTS;
+        this.MentionEveryone = other.MentionEveryone;
         this.Poll = other.Poll;
         this.MessageType = other.MessageType;
         this.Pinned = other.Pinned;
         this.Timestamp = other.Timestamp;
         this.WebhookId = other.WebhookId;
         this.ApplicationId = other.ApplicationId;
+        this.Activity = other.Activity;
+        this.Application = other.Application;
+        this.Flags = other.Flags;
+        this.ReferencedMessage = other.ReferencedMessage;
+        this.MessageSnapshots = other.MessageSnapshots;
+        this.Interaction = other.Interaction;
         this.Components = other.Components;
+        this.internalReference = other.internalReference;
+        this.guildId = other.guildId;
+        this.channel = other.channel;
     }
 
     /// <summary>
@@ -459,20 +469,33 @@ public class DiscordMessage : SnowflakeObject, IEquatable<DiscordMessage>
         where T : DiscordComponent
     {
         List<T> components = [];
+        
+        if (this.Components is null || this.Components.Count == 0)
+        {
+            return [];
+        }
 
         foreach (DiscordComponent component in this.Components)
         {
-            if (component is DiscordActionRowComponent actionRowComponent)
+            switch (component)
             {
-                foreach (DiscordComponent subComponent in actionRowComponent.Components)
-                {
-                    if (subComponent is T filteredComponent)
+                case DiscordActionRowComponent actionRowComponent:
+                    components.AddRange(FilterComponents<T>(actionRowComponent.Components));
+                    break;
+                case DiscordContainerComponent containerComponent:
+                    components.AddRange(FilterComponents<T>(containerComponent.Components));
+                    break;
+                case DiscordSectionComponent sectionComponent:
+                    components.AddRange(FilterComponents<T>(sectionComponent.Components));
+                    
+                    if (sectionComponent.Accessory is T filteredAccessory)
                     {
-                        components.Add(filteredComponent);
+                        components.Add(filteredAccessory);
                     }
-                }
+                    break;
             }
-            else if (component is T filteredComponent)
+
+            if (component is T filteredComponent)
             {
                 components.Add(filteredComponent);
             }
@@ -481,6 +504,40 @@ public class DiscordMessage : SnowflakeObject, IEquatable<DiscordMessage>
         return components;
     }
 
+    private static List<T> FilterComponents<T>(IReadOnlyList<DiscordComponent> components)
+        where T : DiscordComponent
+    {
+        List<T> filteredComponents = [];
+
+        foreach (DiscordComponent component in components)
+        {
+            switch (component)
+            {
+                case DiscordActionRowComponent actionRowComponent:
+                    filteredComponents.AddRange(FilterComponents<T>(actionRowComponent.Components));
+                    break;
+                case DiscordContainerComponent containerComponent:
+                    filteredComponents.AddRange(FilterComponents<T>(containerComponent.Components));
+                    break;
+                case DiscordSectionComponent sectionComponent:
+                    filteredComponents.AddRange(FilterComponents<T>(sectionComponent.Components));
+                    
+                    if (sectionComponent.Accessory is T filteredAccessory)
+                    {
+                        filteredComponents.Add(filteredAccessory);
+                    }
+                    break;
+            }
+            
+            if (component is T filteredComponent)
+            {
+                filteredComponents.Add(filteredComponent);
+            }
+        }
+
+        return filteredComponents;
+    }
+    
     /// <summary>
     /// Edits the message.
     /// </summary>
@@ -545,7 +602,7 @@ public class DiscordMessage : SnowflakeObject, IEquatable<DiscordMessage>
     public async Task<DiscordMessage> ModifyAsync(DiscordMessageBuilder builder, bool suppressEmbeds = false, IEnumerable<DiscordAttachment>? attachments = default)
     {
         builder.Validate();
-        return await this.Discord.ApiClient.EditMessageAsync(this.ChannelId, this.Id, builder.Content, new Optional<IEnumerable<DiscordEmbed>>(builder.Embeds), builder.mentions, builder.Components, builder.Files, suppressEmbeds ? DiscordMessageFlags.SuppressedEmbeds : null, attachments);
+        return await this.Discord.ApiClient.EditMessageAsync(this.ChannelId, this.Id, builder.Content, new Optional<IEnumerable<DiscordEmbed>>(builder.Embeds), builder.mentions, builder.Components, builder.Files, suppressEmbeds ? DiscordMessageFlags.SuppressEmbeds : null, attachments);
     }
 
     /// <summary>
@@ -564,7 +621,7 @@ public class DiscordMessage : SnowflakeObject, IEquatable<DiscordMessage>
         DiscordMessageBuilder builder = new(this);
         action(builder);
         builder.Validate();
-        return await this.Discord.ApiClient.EditMessageAsync(this.ChannelId, this.Id, builder.Content, new Optional<IEnumerable<DiscordEmbed>>(builder.Embeds), builder.mentions, builder.Components, builder.Files, suppressEmbeds ? DiscordMessageFlags.SuppressedEmbeds : null, attachments);
+        return await this.Discord.ApiClient.EditMessageAsync(this.ChannelId, this.Id, builder.Content, new Optional<IEnumerable<DiscordEmbed>>(builder.Embeds), builder.mentions, builder.Components, builder.Files, suppressEmbeds ? DiscordMessageFlags.SuppressEmbeds : null, attachments);
     }
 
     /// <summary>
@@ -577,7 +634,7 @@ public class DiscordMessage : SnowflakeObject, IEquatable<DiscordMessage>
     /// <exception cref="Exceptions.BadRequestException">Thrown when an invalid parameter was provided.</exception>
     /// <exception cref="Exceptions.ServerErrorException">Thrown when Discord is unable to process the request.</exception>
     public async Task ModifyEmbedSuppressionAsync(bool hideEmbeds)
-        => await this.Discord.ApiClient.EditMessageAsync(this.ChannelId, this.Id, default, default, default, default, [], hideEmbeds ? DiscordMessageFlags.SuppressedEmbeds : null, default);
+        => await this.Discord.ApiClient.EditMessageAsync(this.ChannelId, this.Id, default, default, default, default, [], hideEmbeds ? DiscordMessageFlags.SuppressEmbeds : null, default);
 
     /// <summary>
     /// Deletes the message.
@@ -705,6 +762,19 @@ public class DiscordMessage : SnowflakeObject, IEquatable<DiscordMessage>
         => await this.Discord.ApiClient.CreateReactionAsync(this.ChannelId, this.Id, emoji.ToReactionString());
 
     /// <summary>
+    /// Creates a reaction to this message.
+    /// </summary>
+    /// <param name="emojiId">The id of the emoji you want to react with</param>
+    /// <returns></returns>
+    /// <exception cref="Exceptions.UnauthorizedException">Thrown when the client does not have the <see cref="DiscordPermission.AddReactions"/> permission.</exception>
+    /// <exception cref="Exceptions.NotFoundException">Thrown when the emoji does not exist.</exception>
+    /// <exception cref="Exceptions.BadRequestException">Thrown when an invalid parameter was provided.</exception>
+    /// <exception cref="Exceptions.ServerErrorException">Thrown when Discord is unable to process the request.</exception>
+    /// <remarks>This overload only works with guild or application emoji</remarks>
+    public async Task CreateReactionAsync(ulong emojiId)
+        => await this.Discord.ApiClient.CreateReactionAsync(this.ChannelId, this.Id, $"_:{emojiId}");
+    
+    /// <summary>
     /// Deletes your own reaction
     /// </summary>
     /// <param name="emoji">Emoji for the reaction you want to remove, either an emoji or name:id</param>
@@ -715,6 +785,18 @@ public class DiscordMessage : SnowflakeObject, IEquatable<DiscordMessage>
     public async Task DeleteOwnReactionAsync(DiscordEmoji emoji)
         => await this.Discord.ApiClient.DeleteOwnReactionAsync(this.ChannelId, this.Id, emoji.ToReactionString());
 
+    /// <summary>
+    /// Deletes your own reaction
+    /// </summary>
+    /// <param name="emojiId">Emoji id for the reaction you want to remove</param>
+    /// <returns></returns>
+    /// <exception cref="Exceptions.NotFoundException">Thrown when the emoji does not exist.</exception>
+    /// <exception cref="Exceptions.BadRequestException">Thrown when an invalid parameter was provided.</exception>
+    /// <exception cref="Exceptions.ServerErrorException">Thrown when Discord is unable to process the request.</exception>
+    /// <remarks>This overload only works with guild or application emoji</remarks>
+    public async Task DeleteOwnReactionAsync(ulong emojiId)
+        => await this.Discord.ApiClient.DeleteOwnReactionAsync(this.ChannelId, this.Id, $"_:{emojiId}");
+    
     /// <summary>
     /// Deletes another user's reaction.
     /// </summary>
@@ -728,6 +810,21 @@ public class DiscordMessage : SnowflakeObject, IEquatable<DiscordMessage>
     /// <exception cref="Exceptions.ServerErrorException">Thrown when Discord is unable to process the request.</exception>
     public async Task DeleteReactionAsync(DiscordEmoji emoji, DiscordUser user, string? reason = null)
         => await this.Discord.ApiClient.DeleteUserReactionAsync(this.ChannelId, this.Id, user.Id, emoji.ToReactionString(), reason);
+    
+    /// <summary>
+    /// Deletes another user's reaction.
+    /// </summary>
+    /// <param name="emojiId">Emoji id for the reaction you want to remove</param>
+    /// <param name="user">Member you want to remove the reaction for</param>
+    /// <param name="reason">Reason for audit logs.</param>
+    /// <returns></returns>
+    /// <exception cref="Exceptions.UnauthorizedException">Thrown when the client does not have the <see cref="DiscordPermission.ManageMessages"/> permission.</exception>
+    /// <exception cref="Exceptions.NotFoundException">Thrown when the emoji does not exist.</exception>
+    /// <exception cref="Exceptions.BadRequestException">Thrown when an invalid parameter was provided.</exception>
+    /// <exception cref="Exceptions.ServerErrorException">Thrown when Discord is unable to process the request.</exception>
+    /// <remarks>This overload only works with guild or application emoji</remarks>
+    public async Task DeleteReactionAsync(ulong emojiId, DiscordUser user, string? reason = null)
+        => await this.Discord.ApiClient.DeleteUserReactionAsync(this.ChannelId, this.Id, user.Id, $"_:{emojiId}" , reason);
 
     /// <summary>
     /// Gets users that reacted with this emoji.
@@ -738,9 +835,42 @@ public class DiscordMessage : SnowflakeObject, IEquatable<DiscordMessage>
     /// <exception cref="Exceptions.NotFoundException">Thrown when the emoji does not exist.</exception>
     /// <exception cref="Exceptions.BadRequestException">Thrown when an invalid parameter was provided.</exception>
     /// <exception cref="Exceptions.ServerErrorException">Thrown when Discord is unable to process the request.</exception>
-    public async IAsyncEnumerable<DiscordUser> GetReactionsAsync
+    public IAsyncEnumerable<DiscordUser> GetReactionsAsync
     (
         DiscordEmoji emoji,
+        
+        CancellationToken cancellationToken = default
+    ) => InternalGetReactionsAsync(emoji.ToReactionString(), cancellationToken);
+
+    /// <summary>
+    /// Gets users that reacted with this emoji.
+    /// </summary>
+    /// <param name="emojiId">Emoji id for the reaction you want to remove</param>
+    /// <param name="cancellationToken">Cancels enumeration before the next API request.</param>
+    /// <returns></returns>
+    /// <exception cref="Exceptions.NotFoundException">Thrown when the emoji does not exist.</exception>
+    /// <exception cref="Exceptions.BadRequestException">Thrown when an invalid parameter was provided.</exception>
+    /// <exception cref="Exceptions.ServerErrorException">Thrown when Discord is unable to process the request.</exception>
+    /// <remarks>This overload only works with guild or application emoji</remarks>
+    public IAsyncEnumerable<DiscordUser> GetReactionsAsync
+    (
+        ulong emojiId,
+        
+        CancellationToken cancellationToken = default
+    ) => InternalGetReactionsAsync($"_:{emojiId}", cancellationToken);
+
+    /// <summary>
+    /// Gets users that reacted with this emoji.
+    /// </summary>
+    /// <param name="emoji">The emoji those users reacted with.</param>
+    /// <param name="cancellationToken">Cancels enumeration before the next API request.</param>
+    /// <returns></returns>
+    /// <exception cref="Exceptions.NotFoundException">Thrown when the emoji does not exist.</exception>
+    /// <exception cref="Exceptions.BadRequestException">Thrown when an invalid parameter was provided.</exception>
+    /// <exception cref="Exceptions.ServerErrorException">Thrown when Discord is unable to process the request.</exception>
+    private async IAsyncEnumerable<DiscordUser> InternalGetReactionsAsync
+    (
+        string emoji,
 
         [EnumeratorCancellation]
         CancellationToken cancellationToken = default
@@ -761,7 +891,7 @@ public class DiscordMessage : SnowflakeObject, IEquatable<DiscordMessage>
              (
                 channelId: this.ChannelId,
                 messageId: this.Id,
-                emoji: emoji.ToReactionString(),
+                emoji: emoji,
                 afterId: last,
                 limit: 100
              );
@@ -804,6 +934,19 @@ public class DiscordMessage : SnowflakeObject, IEquatable<DiscordMessage>
     /// <exception cref="Exceptions.ServerErrorException">Thrown when Discord is unable to process the request.</exception>
     public async Task DeleteReactionsEmojiAsync(DiscordEmoji emoji)
         => await this.Discord.ApiClient.DeleteReactionsEmojiAsync(this.ChannelId, this.Id, emoji.ToReactionString());
+
+    /// <summary>
+    /// Deletes all reactions of a specific reaction for this message.
+    /// </summary>
+    /// <param name="emojiId">The id of the emoji to clear</param>
+    /// <returns></returns>
+    /// <exception cref="Exceptions.UnauthorizedException">Thrown when the client does not have the <see cref="DiscordPermission.ManageMessages"/> permission.</exception>
+    /// <exception cref="Exceptions.NotFoundException">Thrown when the emoji does not exist.</exception>
+    /// <exception cref="Exceptions.BadRequestException">Thrown when an invalid parameter was provided.</exception>
+    /// <exception cref="Exceptions.ServerErrorException">Thrown when Discord is unable to process the request.</exception>
+    /// <remarks>This overload only works with guild or application emoji</remarks>
+    public async Task DeleteReactionsEmojiAsync(ulong emojiId)
+        => await this.Discord.ApiClient.DeleteReactionsEmojiAsync(this.ChannelId, this.Id, $"_:{emojiId}");
 
     /// <summary>
     /// Forwards a message to the specified channel.

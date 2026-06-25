@@ -182,7 +182,7 @@ internal class RestChannelMessageEditPayload
     public DiscordMentions? Mentions { get; set; }
 
     [JsonProperty("components", NullValueHandling = NullValueHandling.Ignore)]
-    public IReadOnlyList<DiscordActionRowComponent>? Components { get; set; }
+    public IReadOnlyList<DiscordComponent>? Components { get; set; }
 
     [JsonProperty("flags", NullValueHandling = NullValueHandling.Ignore)]
     public DiscordMessageFlags? Flags { get; set; }
@@ -270,6 +270,8 @@ internal sealed class RestChannelInviteCreatePayload
 
     [JsonProperty("target_application_id", NullValueHandling = NullValueHandling.Ignore)]
     public ulong? TargetApplicationId { get; set; }
+    [JsonProperty("role_ids", NullValueHandling = NullValueHandling.Ignore)]
+    public IEnumerable<ulong>? RoleIds { get; set; }
 }
 
 internal sealed class RestChannelPermissionEditPayload
@@ -328,4 +330,10 @@ internal sealed class RestBecomeStageSpeakerInstancePayload
     public DateTime? RequestToSpeakTimestamp { get; set; }
     [JsonProperty("suppress", NullValueHandling = NullValueHandling.Ignore)]
     public bool? Suppress { get; set; }
+}
+
+internal sealed class RestSetVoiceChannelStatusPayload
+{
+    [JsonProperty("status")]
+    public string? Status { get; set; }
 }

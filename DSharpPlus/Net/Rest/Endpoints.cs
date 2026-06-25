@@ -36,9 +36,11 @@ internal static class Endpoints
     public const string INTEGRATIONS = "integrations";
     public const string INTERACTIONS = "interactions";
     public const string INVITES = "invites";
+    public const string JOB_STATUS = "job-status";
     public const string LOGIN = "login";
     public const string ME = "@me";
     public const string MEMBERS = "members";
+    public const string MEMBER_COUNTS = "member-counts";
     public const string MEMBER_VERIFICATION = "member-verification";
     public const string MESSAGES = "messages";
     public const string OAUTH2 = "oauth2";
@@ -64,6 +66,7 @@ internal static class Endpoints
     public const string STICKERPACKS = "sticker-packs";
     public const string STICKERS = "stickers";
     public const string SYNC = "sync";
+    public const string TARGET_USERS = "target-users";
     public const string TEMPLATES = "templates";
     public const string THREADS = "threads";
     public const string THREAD_MEMBERS = "thread-members";
@@ -72,6 +75,7 @@ internal static class Endpoints
     public const string VANITY_URL = "vanity-url";
     public const string VOICE = "voice";
     public const string VOICE_STATES = "voice-states";
+    public const string VOICE_STATUS = "voice-status";
     public const string WEBHOOKS = "webhooks";
     public const string WELCOME_SCREEN = "welcome-screen";
     public const string WIDGET = "widget";

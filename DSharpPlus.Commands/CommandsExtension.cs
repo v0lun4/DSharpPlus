@@ -5,6 +5,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
 using System.Linq.Expressions;
+using System.Net;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Text;
@@ -192,8 +193,16 @@ public sealed class CommandsExtension
     public void AddCommand(Delegate commandDelegate) => this.commandBuilders.Add(CommandBuilder.From(commandDelegate));
     public void AddCommand(Type type, params ulong[] guildIds) => this.commandBuilders.Add(CommandBuilder.From(type, guildIds));
     public void AddCommand(Type type) => this.commandBuilders.Add(CommandBuilder.From(type));
-    public void AddCommands(Assembly assembly, params ulong[] guildIds) => AddCommands(assembly.GetTypes(), guildIds);
-    public void AddCommands(Assembly assembly) => AddCommands(assembly.GetTypes());
+
+    // !type.IsNested || type.DeclaringType?.GetCustomAttribute<CommandAttribute>() is null
+    // This is done to prevent nested classes from being added as commands, while still allowing non-command classes containing commands to be added.
+    // See https://github.com/DSharpPlus/DSharpPlus/pull/2273#discussion_r2009114568 for more information.
+    public void AddCommands(Assembly assembly, params ulong[] guildIds) => AddCommands(assembly.GetTypes().Where(type =>
+        !type.IsNested || type.DeclaringType?.GetCustomAttribute<CommandAttribute>() is null), guildIds);
+
+    public void AddCommands(Assembly assembly) => AddCommands(assembly.GetTypes().Where(type =>
+        !type.IsNested || type.DeclaringType?.GetCustomAttribute<CommandAttribute>() is null));
+
     public void AddCommands(IEnumerable<CommandBuilder> commands) => this.commandBuilders.AddRange(commands);
     public void AddCommands(IEnumerable<Type> types) => AddCommands(types, []);
     public void AddCommands(params CommandBuilder[] commands) => this.commandBuilders.AddRange(commands);
@@ -207,6 +216,7 @@ public sealed class CommandsExtension
         {
             if (type.GetCustomAttribute<CommandAttribute>() is not null)
             {
+                this.Client.Logger.LogDebug("Adding command from type {Type}", type.FullName ?? type.Name);
                 this.commandBuilders.Add(CommandBuilder.From(type, guildIds));
                 continue;
             }
@@ -215,6 +225,7 @@ public sealed class CommandsExtension
             {
                 if (method.GetCustomAttribute<CommandAttribute>() is not null)
                 {
+                    this.Client.Logger.LogDebug("Adding command from type {Type}", type.FullName ?? type.Name);
                     this.commandBuilders.Add(CommandBuilder.From(method, guildIds: guildIds));
                 }
             }
@@ -299,19 +310,19 @@ public sealed class CommandsExtension
             }
         }
 
-        List<Command> subCommands = new(command.Subcommands.Count);
+        List<Command> subcommands = new(command.Subcommands.Count);
         foreach (Command subcommand in command.Subcommands)
         {
-            Command? filteredSubCommand = FilterCommand(subcommand, processorType, contextType);
-            if (filteredSubCommand is not null)
+            Command? filteredSubcommand = FilterCommand(subcommand, processorType, contextType);
+            if (filteredSubcommand is not null)
             {
-                subCommands.Add(filteredSubCommand);
+                subcommands.Add(filteredSubcommand);
             }
         }
 
         return command with
         {
-            Subcommands = subCommands,
+            Subcommands = subcommands,
         };
     }
 
@@ -486,6 +497,7 @@ public sealed class CommandsExtension
             this.processors.TryAdd(typeof(UserCommandProcessor), new UserCommandProcessor());
         }
 
+        // Configure processors in a specific order to ensure dependencies are met
         if (this.processors.TryGetValue(typeof(UserCommandProcessor), out ICommandProcessor? userProcessor))
         {
             await userProcessor.ConfigureAsync(this);
@@ -522,7 +534,7 @@ public sealed class CommandsExtension
             }
             catch (Exception error)
             {
-                this.logger.LogError(error, "Failed to build command '{CommandBuilder}'", commandBuilder.Name);
+                this.logger.LogError(error, "Failed to build command '{CommandBuilder}'", commandBuilder.FullName);
             }
         }
 
@@ -556,10 +568,10 @@ public sealed class CommandsExtension
                 $"The following error occurred: ``{checksFailedException.Errors[0].ErrorMessage}``",
             ParameterChecksFailedException checksFailedException =>
                 $"The following context checks failed: ```\n{string.Join("\n- ", checksFailedException.Errors.Select(x => x.ErrorMessage)).Trim()}\n```.",
-            DiscordException discordException when discordException.Response is not null && (int)discordException.Response.StatusCode >= 500 && (int)discordException.Response.StatusCode < 600 =>
-                $"Discord API error {discordException.Response.StatusCode} occurred: {discordException.JsonMessage ?? "No further information was provided."}",
-            DiscordException discordException when discordException.Response is not null =>
-                $"Discord API error {discordException.Response.StatusCode} occurred: {discordException.JsonMessage ?? discordException.Message}",
+            DiscordException discordException when discordException.Response is { ResponseCode: >= (HttpStatusCode)500 and < (HttpStatusCode)600} =>
+                $"Discord API error {discordException.Response.ResponseCode} occurred: {discordException.JsonMessage ?? "No further information was provided."}",
+            DiscordException discordException =>
+                $"Discord API error {discordException.Response.ResponseCode} occurred: {discordException.JsonMessage ?? discordException.Message}",
             _ => $"An unexpected error occurred: {eventArgs.Exception.Message}",
         });
 

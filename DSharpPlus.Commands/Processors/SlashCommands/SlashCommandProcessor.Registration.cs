@@ -31,7 +31,8 @@ public sealed partial class SlashCommandProcessor : BaseCommandProcessor<ISlashA
     private static partial Regex NameLocalizationRegex();
 
     private static FrozenDictionary<ulong, Command> applicationCommandMapping = FrozenDictionary<ulong, Command>.Empty;
-    private static readonly List<DiscordApplicationCommand> applicationCommands = [];
+    private static readonly List<DiscordApplicationCommand> globalApplicationCommands = [];
+    private static readonly Dictionary<ulong, List<DiscordApplicationCommand>> guildsApplicationCommands = [];
 
     // if registration failed, this is set to true and will trigger better error messages
     private bool registrationFailed = false;
@@ -41,8 +42,17 @@ public sealed partial class SlashCommandProcessor : BaseCommandProcessor<ISlashA
     /// </summary>
     public IReadOnlyDictionary<ulong, Command> ApplicationCommandMapping => applicationCommandMapping;
 
-    public void AddApplicationCommands(params DiscordApplicationCommand[] commands) => applicationCommands.AddRange(commands);
-    public void AddApplicationCommands(IEnumerable<DiscordApplicationCommand> commands) => applicationCommands.AddRange(commands);
+    public void AddGlobalApplicationCommands(params DiscordApplicationCommand[] commands) => globalApplicationCommands.AddRange(commands);
+    public void AddGlobalApplicationCommands(IEnumerable<DiscordApplicationCommand> commands) => globalApplicationCommands.AddRange(commands);
+    public void AddGuildApplicationCommand(ulong guildId, DiscordApplicationCommand command)
+    {
+        if (!guildsApplicationCommands.TryGetValue(guildId, out List<DiscordApplicationCommand>? guildCommands))
+        {
+            guildCommands = [];
+            guildsApplicationCommands.Add(guildId, guildCommands);
+        }
+        guildCommands.Add(command);
+    }
 
     /// <summary>
     /// Registers <see cref="CommandsExtension.Commands"/> as application commands.
@@ -59,9 +69,9 @@ public sealed partial class SlashCommandProcessor : BaseCommandProcessor<ISlashA
         this.isApplicationCommandsRegistered = true;
 
         IReadOnlyList<Command> processorSpecificCommands = extension.GetCommandsForProcessor(this);
-        List<DiscordApplicationCommand> globalApplicationCommands = [];
-        Dictionary<ulong, List<DiscordApplicationCommand>> guildsApplicationCommands = [];
-        globalApplicationCommands.AddRange(applicationCommands);
+        List<DiscordApplicationCommand> globalCommands = [];
+        Dictionary<ulong, List<DiscordApplicationCommand>> guildsCommands = guildsApplicationCommands;
+        globalCommands.AddRange(globalApplicationCommands);
 
         try
         {
@@ -80,16 +90,16 @@ public sealed partial class SlashCommandProcessor : BaseCommandProcessor<ISlashA
                 DiscordApplicationCommand applicationCommand = await ToApplicationCommandAsync(command);
                 if (command.GuildIds.Count == 0)
                 {
-                    globalApplicationCommands.Add(applicationCommand);
+                    globalCommands.Add(applicationCommand);
                     continue;
                 }
 
                 foreach (ulong guildId in command.GuildIds)
                 {
-                    if (!guildsApplicationCommands.TryGetValue(guildId, out List<DiscordApplicationCommand>? guildCommands))
+                    if (!guildsCommands.TryGetValue(guildId, out List<DiscordApplicationCommand>? guildCommands))
                     {
                         guildCommands = [];
-                        guildsApplicationCommands.Add(guildId, guildCommands);
+                        guildsCommands.Add(guildId, guildCommands);
                     }
 
                     guildCommands.Add(applicationCommand);
@@ -113,11 +123,11 @@ public sealed partial class SlashCommandProcessor : BaseCommandProcessor<ISlashA
             discordCommands.AddRange
             (
                 this.extension.DebugGuildId == 0
-                    ? await this.extension.Client.BulkOverwriteGlobalApplicationCommandsAsync(globalApplicationCommands)
+                    ? await this.extension.Client.BulkOverwriteGlobalApplicationCommandsAsync(globalCommands)
                     : await this.extension.Client.BulkOverwriteGuildApplicationCommandsAsync
                     (
                         this.extension.DebugGuildId,
-                        globalApplicationCommands
+                        globalCommands
                     )
             );
         }
@@ -127,11 +137,11 @@ public sealed partial class SlashCommandProcessor : BaseCommandProcessor<ISlashA
                 ? await this.extension.Client.GetGlobalApplicationCommandsAsync(true)
                 : await this.extension.Client.GetGuildApplicationCommandsAsync(this.extension.DebugGuildId, true);
 
-            discordCommands.AddRange(await VerifyAndUpdateRemoteCommandsAsync(globalApplicationCommands, preexisting));
+            discordCommands.AddRange(await VerifyAndUpdateRemoteCommandsAsync(globalCommands, preexisting));
         }
 
         // for the time being, we still overwrite guilds by force
-        foreach (KeyValuePair<ulong, List<DiscordApplicationCommand>> kv in guildsApplicationCommands)
+        foreach (KeyValuePair<ulong, List<DiscordApplicationCommand>> kv in guildsCommands)
         {
             discordCommands.AddRange
             (
@@ -232,8 +242,8 @@ public sealed partial class SlashCommandProcessor : BaseCommandProcessor<ISlashA
                 throw new InvalidOperationException("Localization is not supported because invariant mode is enabled. See https://aka.ms/GlobalizationInvariantMode for more information.");
             }
 
-            nameLocalizations = await ExecuteLocalizerAsync(localizerAttribute.LocalizerType, $"{command.FullName}.name");
-            descriptionLocalizations = await ExecuteLocalizerAsync(localizerAttribute.LocalizerType, $"{command.FullName}.description");
+            nameLocalizations = await ExecuteLocalizerAsync(localizerAttribute.LocalizerType, $"{command.FullName}.name", this.extension!.ServiceProvider);
+            descriptionLocalizations = await ExecuteLocalizerAsync(localizerAttribute.LocalizerType, $"{command.FullName}.description", this.extension!.ServiceProvider);
         }
 
         ValidateSlashCommand(command, nameLocalizations, descriptionLocalizations);
@@ -246,17 +256,17 @@ public sealed partial class SlashCommandProcessor : BaseCommandProcessor<ISlashA
         }
         else
         {
-            foreach (Command subCommand in command.Subcommands)
+            foreach (Command subcommand in command.Subcommands)
             {
                 // If there is a SlashCommandTypesAttribute, check if it contains SlashCommandTypes.ApplicationCommand
                 // If there isn't, default to SlashCommands
-                if (subCommand.Attributes.OfType<SlashCommandTypesAttribute>().FirstOrDefault() is SlashCommandTypesAttribute slashCommandTypesAttribute
+                if (subcommand.Attributes.OfType<SlashCommandTypesAttribute>().FirstOrDefault() is SlashCommandTypesAttribute slashCommandTypesAttribute
                     && !slashCommandTypesAttribute.ApplicationCommandTypes.Contains(DiscordApplicationCommandType.SlashCommand))
                 {
                     continue;
                 }
 
-                options.Add(await ToApplicationParameterAsync(subCommand));
+                options.Add(await ToApplicationParameterAsync(subcommand));
             }
         }
 
@@ -310,9 +320,9 @@ public sealed partial class SlashCommandProcessor : BaseCommandProcessor<ISlashA
             }
 
             depth++;
-            foreach (Command subCommand in command.Subcommands)
+            foreach (Command subcommand in command.Subcommands)
             {
-                options.Add(await ToApplicationParameterAsync(subCommand, depth));
+                options.Add(await ToApplicationParameterAsync(subcommand, depth));
             }
         }
 
@@ -321,7 +331,7 @@ public sealed partial class SlashCommandProcessor : BaseCommandProcessor<ISlashA
         Dictionary<string, string> descriptionLocalizations = [];
         if (command.Attributes.OfType<InteractionLocalizerAttribute>().FirstOrDefault() is InteractionLocalizerAttribute localizerAttribute)
         {
-            foreach ((string ietfTag, string name) in await ExecuteLocalizerAsync(localizerAttribute.LocalizerType, $"{command.FullName}.name"))
+            foreach ((string ietfTag, string name) in await ExecuteLocalizerAsync(localizerAttribute.LocalizerType, $"{command.FullName}.name", this.extension!.ServiceProvider))
             {
                 if (!IsLocalizationSupported())
                 {
@@ -335,7 +345,7 @@ public sealed partial class SlashCommandProcessor : BaseCommandProcessor<ISlashA
                 );
             }
 
-            descriptionLocalizations = await ExecuteLocalizerAsync(localizerAttribute.LocalizerType, $"{command.FullName}.description");
+            descriptionLocalizations = await ExecuteLocalizerAsync(localizerAttribute.LocalizerType, $"{command.FullName}.description", this.extension!.ServiceProvider);
         }
 
         string? description = command.Description;
@@ -380,7 +390,7 @@ public sealed partial class SlashCommandProcessor : BaseCommandProcessor<ISlashA
                 localeIdBuilder.Append($".{i}");
             }
 
-            foreach ((string ietfTag, string name) in await ExecuteLocalizerAsync(localizerAttribute.LocalizerType, localeIdBuilder.ToString() + ".name"))
+            foreach ((string ietfTag, string name) in await ExecuteLocalizerAsync(localizerAttribute.LocalizerType, localeIdBuilder + ".name", this.extension!.ServiceProvider))
             {
                 nameLocalizations[ietfTag] = this.Configuration.NamingPolicy.TransformText
                 (
@@ -389,7 +399,7 @@ public sealed partial class SlashCommandProcessor : BaseCommandProcessor<ISlashA
                 );
             }
 
-            descriptionLocalizations = await ExecuteLocalizerAsync(localizerAttribute.LocalizerType, localeIdBuilder.ToString() + ".description");
+            descriptionLocalizations = await ExecuteLocalizerAsync(localizerAttribute.LocalizerType, localeIdBuilder + ".description", this.extension!.ServiceProvider);
         }
 
         IEnumerable<DiscordApplicationCommandOptionChoice> choices = [];
@@ -517,17 +527,17 @@ public sealed partial class SlashCommandProcessor : BaseCommandProcessor<ISlashA
     {
         if (command.Subcommands.Count > 0)
         {
-            foreach (Command subCommand in command.Subcommands)
+            foreach (Command subcommand in command.Subcommands)
             {
                 // If there is a SlashCommandTypesAttribute, check if it contains SlashCommandTypes.ApplicationCommand
                 // If there isn't, default to SlashCommands
-                if (subCommand.Attributes.OfType<SlashCommandTypesAttribute>().FirstOrDefault() is SlashCommandTypesAttribute slashCommandTypesAttribute
+                if (subcommand.Attributes.OfType<SlashCommandTypesAttribute>().FirstOrDefault() is SlashCommandTypesAttribute slashCommandTypesAttribute
                     && !slashCommandTypesAttribute.ApplicationCommandTypes.Contains(DiscordApplicationCommandType.SlashCommand))
                 {
                     continue;
                 }
 
-                ValidateSlashCommand(subCommand, nameLocalizations, descriptionLocalizations);
+                ValidateSlashCommand(subcommand, nameLocalizations, descriptionLocalizations);
             }
         }
 
@@ -609,9 +619,9 @@ public sealed partial class SlashCommandProcessor : BaseCommandProcessor<ISlashA
         }
     }
 
-    internal async ValueTask<Dictionary<string, string>> ExecuteLocalizerAsync(Type localizer, string name)
+    internal static async ValueTask<Dictionary<string, string>> ExecuteLocalizerAsync(Type localizer, string name, IServiceProvider serviceProvider)
     {
-        using AsyncServiceScope scope = this.extension!.ServiceProvider.CreateAsyncScope();
+        using AsyncServiceScope scope = serviceProvider.CreateAsyncScope();
         IInteractionLocalizer instance;
         try
         {
@@ -619,7 +629,7 @@ public sealed partial class SlashCommandProcessor : BaseCommandProcessor<ISlashA
         }
         catch (Exception)
         {
-            ILogger<InteractionLocalizerAttribute> logger = this.extension!.ServiceProvider.GetService<ILogger<InteractionLocalizerAttribute>>() ?? NullLogger<InteractionLocalizerAttribute>.Instance;
+            ILogger<InteractionLocalizerAttribute> logger = serviceProvider.GetService<ILogger<InteractionLocalizerAttribute>>() ?? NullLogger<InteractionLocalizerAttribute>.Instance;
             logger.LogWarning("Failed to create an instance of {TypeName} for localization of {SymbolName}.", localizer, name);
             return [];
         }

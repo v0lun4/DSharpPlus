@@ -8,11 +8,13 @@ using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Channels;
 using System.Threading.Tasks;
+using DSharpPlus.Clients;
 using DSharpPlus.Entities.AuditLogs;
 using DSharpPlus.EventArgs;
 using DSharpPlus.Exceptions;
 using DSharpPlus.Net;
 using DSharpPlus.Net.Abstractions;
+using DSharpPlus.Net.Abstractions.Rest;
 using DSharpPlus.Net.Models;
 using DSharpPlus.Net.Serialization;
 using Newtonsoft.Json;
@@ -102,14 +104,26 @@ public class DiscordGuild : SnowflakeObject, IEquatable<DiscordGuild>
     /// Gets the guild's voice region ID.
     /// </summary>
     [JsonProperty("region", NullValueHandling = NullValueHandling.Ignore)]
-    internal string voiceRegionId { get; set; }
+    public string VoiceRegionId { get; internal set; }
 
     /// <summary>
     /// Gets the guild's voice region.
     /// </summary>
-    [JsonIgnore]
-    public DiscordVoiceRegion VoiceRegion
-        => this.Discord.VoiceRegions[this.voiceRegionId];
+    public async ValueTask<DiscordVoiceRegion> GetVoiceRegionAsync()
+    {
+        if (this.Discord.VoiceRegions.TryGetValue(this.VoiceRegionId, out DiscordVoiceRegion? currentRegion))
+        {
+            return currentRegion;
+        }
+
+        IReadOnlyList<DiscordVoiceRegion> regions = await this.Discord.ApiClient.ListVoiceRegionsAsync();
+        foreach (DiscordVoiceRegion region in regions)
+        {
+            this.Discord.InternalVoiceRegions.TryAdd(region.Id, region);
+        }
+
+        return this.Discord.InternalVoiceRegions[this.VoiceRegionId];
+    }
 
     /// <summary>
     /// Gets the guild's AFK voice channel ID.
@@ -129,7 +143,7 @@ public class DiscordGuild : SnowflakeObject, IEquatable<DiscordGuild>
             return null;
         }
 
-        return await GetChannelAsync(this.AfkChannelId.Value);
+        return await GetChannelAsync(this.AfkChannelId.Value, skipCache);
     }
 
     /// <summary>
@@ -291,7 +305,7 @@ public class DiscordGuild : SnowflakeObject, IEquatable<DiscordGuild>
     /// Scheduled events for this guild.
     /// </summary>
     public IReadOnlyDictionary<ulong, DiscordScheduledGuildEvent> ScheduledEvents
-        => new ReadOnlyConcurrentDictionary<ulong, DiscordScheduledGuildEvent>(this.scheduledEvents);
+        => this.scheduledEvents;
 
     [JsonProperty("guild_scheduled_events")]
     [JsonConverter(typeof(SnowflakeArrayAsDictionaryJsonConverter))]
@@ -301,17 +315,17 @@ public class DiscordGuild : SnowflakeObject, IEquatable<DiscordGuild>
     /// Gets a collection of this guild's roles.
     /// </summary>
     [JsonIgnore]
-    public IReadOnlyDictionary<ulong, DiscordRole> Roles => new ReadOnlyConcurrentDictionary<ulong, DiscordRole>(this.roles);
+    public IReadOnlyDictionary<ulong, DiscordRole> Roles => this.roles;
 
     [JsonProperty("roles", NullValueHandling = NullValueHandling.Ignore)]
     [JsonConverter(typeof(SnowflakeArrayAsDictionaryJsonConverter))]
-    internal ConcurrentDictionary<ulong, DiscordRole> roles;
+    internal ConcurrentDictionary<ulong, DiscordRole> roles = [];
 
     /// <summary>
     /// Gets a collection of this guild's stickers.
     /// </summary>
     [JsonIgnore]
-    public IReadOnlyDictionary<ulong, DiscordMessageSticker> Stickers => new ReadOnlyConcurrentDictionary<ulong, DiscordMessageSticker>(this.stickers);
+    public IReadOnlyDictionary<ulong, DiscordMessageSticker> Stickers => this.stickers;
 
     [JsonProperty("stickers", NullValueHandling = NullValueHandling.Ignore)]
     [JsonConverter(typeof(SnowflakeArrayAsDictionaryJsonConverter))]
@@ -321,7 +335,7 @@ public class DiscordGuild : SnowflakeObject, IEquatable<DiscordGuild>
     /// Gets a collection of this guild's emojis.
     /// </summary>
     [JsonIgnore]
-    public IReadOnlyDictionary<ulong, DiscordEmoji> Emojis => new ReadOnlyConcurrentDictionary<ulong, DiscordEmoji>(this.emojis);
+    public IReadOnlyDictionary<ulong, DiscordEmoji> Emojis => this.emojis;
 
     [JsonProperty("emojis", NullValueHandling = NullValueHandling.Ignore)]
     [JsonConverter(typeof(SnowflakeArrayAsDictionaryJsonConverter))]
@@ -396,21 +410,21 @@ public class DiscordGuild : SnowflakeObject, IEquatable<DiscordGuild>
     public int? MaxVideoChannelUsers { get; internal set; }
 
     /// <summary>
-    /// Gets a dictionary of all the voice states for this guilds. The key for this dictionary is the ID of the user
+    /// Gets a dictionary of all the voice states for this guild. The key for this dictionary is the ID of the user
     /// the voice state corresponds to.
     /// </summary>
     [JsonIgnore]
-    public IReadOnlyDictionary<ulong, DiscordVoiceState> VoiceStates => new ReadOnlyConcurrentDictionary<ulong, DiscordVoiceState>(this.voiceStates);
+    public IReadOnlyDictionary<ulong, DiscordVoiceState> VoiceStates => this.voiceStates;
 
     [JsonProperty("voice_states", NullValueHandling = NullValueHandling.Ignore)]
     [JsonConverter(typeof(SnowflakeArrayAsDictionaryJsonConverter))]
-    internal ConcurrentDictionary<ulong, DiscordVoiceState> voiceStates;
+    internal ConcurrentDictionary<ulong, DiscordVoiceState> voiceStates = new();
 
     /// <summary>
     /// Gets a dictionary of all the members that belong to this guild. The dictionary's key is the member ID.
     /// </summary>
-    [JsonIgnore] // TODO overhead of => vs Lazy? it's a struct
-    public IReadOnlyDictionary<ulong, DiscordMember> Members => new ReadOnlyConcurrentDictionary<ulong, DiscordMember>(this.members);
+    [JsonIgnore]
+    public IReadOnlyDictionary<ulong, DiscordMember> Members => this.members;
 
     [JsonProperty("members", NullValueHandling = NullValueHandling.Ignore)]
     [JsonConverter(typeof(SnowflakeArrayAsDictionaryJsonConverter))]
@@ -420,7 +434,7 @@ public class DiscordGuild : SnowflakeObject, IEquatable<DiscordGuild>
     /// Gets a dictionary of all the channels associated with this guild. The dictionary's key is the channel ID.
     /// </summary>
     [JsonIgnore]
-    public IReadOnlyDictionary<ulong, DiscordChannel> Channels => new ReadOnlyConcurrentDictionary<ulong, DiscordChannel>(this.channels);
+    public IReadOnlyDictionary<ulong, DiscordChannel> Channels => this.channels;
 
     [JsonProperty("channels", NullValueHandling = NullValueHandling.Ignore)]
     [JsonConverter(typeof(SnowflakeArrayAsDictionaryJsonConverter))]
@@ -430,7 +444,7 @@ public class DiscordGuild : SnowflakeObject, IEquatable<DiscordGuild>
     /// Gets a dictionary of all the active threads associated with this guild the user has permission to view. The dictionary's key is the channel ID.
     /// </summary>
     [JsonIgnore]
-    public IReadOnlyDictionary<ulong, DiscordThreadChannel> Threads => new ReadOnlyConcurrentDictionary<ulong, DiscordThreadChannel>(this.threads);
+    public IReadOnlyDictionary<ulong, DiscordThreadChannel> Threads => this.threads;
 
     [JsonProperty("threads", NullValueHandling = NullValueHandling.Ignore)]
     [JsonConverter(typeof(SnowflakeArrayAsDictionaryJsonConverter))]
@@ -468,7 +482,7 @@ public class DiscordGuild : SnowflakeObject, IEquatable<DiscordGuild>
     /// Gets the vanity URL code for this guild, when applicable.
     /// </summary>
     [JsonProperty("vanity_url_code")]
-    public string VanityUrlCode { get; internal set; }
+    public string? VanityUrlCode { get; internal set; }
 
     /// <summary>
     /// Gets the guild description, when applicable.
@@ -517,7 +531,7 @@ public class DiscordGuild : SnowflakeObject, IEquatable<DiscordGuild>
     /// Gets the stage instances in this guild.
     /// </summary>
     [JsonIgnore]
-    public IReadOnlyDictionary<ulong, DiscordStageInstance> StageInstances => new ReadOnlyConcurrentDictionary<ulong, DiscordStageInstance>(this.stageInstances);
+    public IReadOnlyDictionary<ulong, DiscordStageInstance> StageInstances => this.stageInstances;
 
     [JsonProperty("stage_instances", NullValueHandling = NullValueHandling.Ignore)]
     [JsonConverter(typeof(SnowflakeArrayAsDictionaryJsonConverter))]
@@ -1097,10 +1111,17 @@ public class DiscordGuild : SnowflakeObject, IEquatable<DiscordGuild>
     /// <returns>All the roles in the guild.</returns>
     public async Task<IReadOnlyList<DiscordRole>> GetRolesAsync()
     {
-        IReadOnlyList<DiscordRole> roles = await this.Discord.ApiClient.GetGuildRolesAsync(this.Id);
-        this.roles = new ConcurrentDictionary<ulong, DiscordRole>(roles.ToDictionary(x => x.Id));
-        return roles;
+        IReadOnlyList<DiscordRole> apiRoles = await this.Discord.ApiClient.GetGuildRolesAsync(this.Id);
+        this.roles = new ConcurrentDictionary<ulong, DiscordRole>(apiRoles.ToDictionary(x => x.Id));
+        return apiRoles;
     }
+    /// <summary>
+    /// Gets the member counts of all roles except the @everyone role in this guild.
+    /// </summary>
+    /// <returns>Role ids and their corresponding member counts.</returns>
+    public async Task<IReadOnlyDictionary<ulong, int>> GetRoleMemberCountsAsync()
+        => await this.Discord.ApiClient.GetGuildRoleMemberCountsAsync(this.Id);
+
 
     /// <summary>
     /// Gets a singular role from this guild by its ID.
@@ -1134,10 +1155,10 @@ public class DiscordGuild : SnowflakeObject, IEquatable<DiscordGuild>
         }
 
         // Sort the roles by position and create skeleton roles for the payload.
-        IReadOnlyList<DiscordRole> returnedRoles = await this.Discord.ApiClient.ModifyGuildRolePositionsAsync(this.Id, roles.Select(x => new RestGuildRoleReorderPayload() { RoleId = x.Value.Id, Position = x.Key }), reason);
+        IReadOnlyList<DiscordRole> returnedRoles = await this.Discord.ApiClient.ModifyGuildRolePositionsAsync(this.Id, roles.Select(x => new DiscordRolePosition() { RoleId = x.Value.Id, Position = x.Key }), reason);
 
         // Update the cache as the endpoint returns all roles in the order they were sent.
-        this.roles = new(returnedRoles.Select(x => new KeyValuePair<ulong, DiscordRole>(x.Id, x)));
+        this.roles = new ConcurrentDictionary<ulong, DiscordRole>(returnedRoles.Select(x => new KeyValuePair<ulong, DiscordRole>(x.Id, x)));
         return returnedRoles;
     }
 
@@ -1439,27 +1460,19 @@ public class DiscordGuild : SnowflakeObject, IEquatable<DiscordGuild>
     /// <exception cref="NotFoundException">Thrown when the guild does not exist.</exception>
     /// <exception cref="BadRequestException">Thrown when an invalid parameter was provided.</exception>
     /// <exception cref="ServerErrorException">Thrown when Discord is unable to process the request.</exception>
-    public async Task<int> GetPruneCountAsync(int days = 7, IEnumerable<DiscordRole> includedRoles = null)
+    public async Task<int> GetPruneCountAsync(int days = 7, IEnumerable<DiscordRole>? includedRoles = null)
     {
-        if (includedRoles != null)
+        if (includedRoles is null)
         {
-            includedRoles = includedRoles.Where(r => r != null);
-            int roleCount = includedRoles.Count();
-            DiscordRole[] roleArr = includedRoles.ToArray();
-            List<ulong> rawRoleIds = [];
-
-            for (int i = 0; i < roleCount; i++)
-            {
-                if (this.roles.ContainsKey(roleArr[i].Id))
-                {
-                    rawRoleIds.Add(roleArr[i].Id);
-                }
-            }
-
-            return await this.Discord.ApiClient.GetGuildPruneCountAsync(this.Id, days, rawRoleIds);
+            return await this.Discord.ApiClient.GetGuildPruneCountAsync(this.Id, days);
         }
+        
+        IEnumerable<ulong> rawRoleIds = includedRoles
+            .Where(r => this.roles.ContainsKey(r.Id))
+            .Select(x => x.Id);
 
-        return await this.Discord.ApiClient.GetGuildPruneCountAsync(this.Id, days, null);
+        return await this.Discord.ApiClient.GetGuildPruneCountAsync(this.Id, days, rawRoleIds);
+
     }
 
     /// <summary>
@@ -1775,24 +1788,17 @@ public class DiscordGuild : SnowflakeObject, IEquatable<DiscordGuild>
                 yield break;
             }
 
-            IReadOnlyList<TransportMember> transportMembers = await this.Discord.ApiClient.ListGuildMembersAsync(this.Id, 1000, last == 0 ? null : last);
-            recievedLastCall = transportMembers.Count;
+            IReadOnlyList<DiscordMember> members = await this.Discord.ApiClient.ListGuildMembersAsync(this.Id, 1000, last == 0 ? null : last);
+            recievedLastCall = members.Count;
 
-            foreach (TransportMember transportMember in transportMembers)
+            foreach (DiscordMember member in members)
             {
-                this.Discord.UpdateUserCache(new(transportMember.User)
-                {
-                    Discord = this.Discord
-                });
+                this.Discord.UpdateUserCache(member.User);
 
-                yield return new(transportMember)
-                {
-                    Discord = this.Discord,
-                    guild_id = this.Id
-                };
+                yield return member;
             }
 
-            TransportMember? lastMember = transportMembers.LastOrDefault();
+            DiscordMember? lastMember = members.LastOrDefault();
             last = lastMember?.User.Id ?? 0;
         }
     }
@@ -1828,7 +1834,7 @@ public class DiscordGuild : SnowflakeObject, IEquatable<DiscordGuild>
 
         await RequestMembersAsync(query, limit, presences, userIds, nonce);
 
-        await foreach (var evt in reader.ReadAllAsync(cancellationToken))
+        await foreach (GuildMembersChunkedEventArgs evt in reader.ReadAllAsync(cancellationToken))
         {
             foreach (DiscordMember member in evt.Members)
             {
@@ -2287,7 +2293,7 @@ public class DiscordGuild : SnowflakeObject, IEquatable<DiscordGuild>
             extension = "json";
         }
 
-        return await this.Discord.ApiClient.CreateGuildStickerAsync(this.Id, name, description ?? string.Empty, tags, new DiscordMessageFile(null, imageContents, null, extension, contentType), reason);
+        return await this.Discord.ApiClient.CreateGuildStickerAsync(this.Id, name, description ?? string.Empty, tags, new DiscordFile(null, imageContents, null, extension, contentType), reason);
     }
 
     /// <summary>
@@ -2543,6 +2549,60 @@ public class DiscordGuild : SnowflakeObject, IEquatable<DiscordGuild>
     /// <returns></returns>
     public async Task DeleteAutoModerationRuleAsync(ulong ruleId, string? reason = null)
         => await this.Discord.ApiClient.DeleteGuildAutoModerationRuleAsync(this.Id, ruleId, reason);
+
+    /// <summary>
+    /// Gets the current user's voice state in this guild.
+    /// </summary>
+    /// <param name="skipCache">Whether to skip the cache or not.</param>
+    /// <returns>Returns the users voicestate. This is null if the user is in no voice channel</returns>
+    public async Task<DiscordVoiceState?> GetCurrentUserVoiceStateAsync(bool skipCache = false)
+    {
+        if (!skipCache && this.VoiceStates.TryGetValue(this.Discord.CurrentUser.Id, out DiscordVoiceState? voiceState))
+        {
+            return voiceState;
+        }
+
+        try
+        {
+            return await this.Discord.ApiClient.GetCurrentUserVoiceStateAsync(this.Id);
+        }
+        catch (NotFoundException)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Gets user's voice state in this guild.
+    /// </summary>
+    /// <param name="member">The member to get the voice state for.</param>
+    /// <param name="skipCache">Whether to skip the cache or not.</param>
+    /// <returns>Returns the users voicestate. This is null if the user is in no voice channel</returns>
+    public Task<DiscordVoiceState?> GetMemberVoiceStateAsync(DiscordUser member, bool skipCache = false)
+        => GetMemberVoiceStateAsync(member.Id, skipCache);
+
+    /// <summary>
+    /// Gets user's voice state in this guild.
+    /// </summary>
+    /// <param name="memberId">The member ID to get the voice state for.</param>
+    /// <param name="skipCache">Whether to skip the cache or not.</param>
+    /// <returns>Returns the users voicestate. This is null if the user is in no voice channel</returns>
+    public async Task<DiscordVoiceState?> GetMemberVoiceStateAsync(ulong memberId, bool skipCache = false)
+    {
+        if (!skipCache && this.VoiceStates.TryGetValue(memberId, out DiscordVoiceState? voiceState))
+        {
+            return voiceState;
+        }
+
+        try
+        {
+            return await this.Discord.ApiClient.GetUserVoiceStateAsync(this.Id, memberId);
+        }
+        catch (NotFoundException)
+        {
+            return null;
+        }
+    }
 
     #endregion
 

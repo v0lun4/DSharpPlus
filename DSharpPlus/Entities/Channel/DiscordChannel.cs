@@ -3,10 +3,14 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Runtime.CompilerServices;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using DSharpPlus.Clients;
+using DSharpPlus.EventArgs;
 using DSharpPlus.Exceptions;
 using DSharpPlus.Net.Abstractions;
+using DSharpPlus.Net.Abstractions.Rest;
 using DSharpPlus.Net.Models;
 using DSharpPlus.Net.Serialization;
 using Newtonsoft.Json;
@@ -313,7 +317,7 @@ public class DiscordChannel : SnowflakeObject, IEquatable<DiscordChannel>
     /// <returns>The created event.</returns>
     /// <exception cref="InvalidOperationException"></exception>
     public Task<DiscordScheduledGuildEvent> CreateGuildEventAsync(string name, string description, DiscordScheduledGuildEventPrivacyLevel privacyLevel, DateTimeOffset start, DateTimeOffset? end)
-        => this.Type is not (DiscordChannelType.Voice or DiscordChannelType.Stage) ? throw new InvalidOperationException("Events can only be created on voice an stage chnanels") :
+        => this.Type is not (DiscordChannelType.Voice or DiscordChannelType.Stage) ? throw new InvalidOperationException("Events can only be created on voice and stage channels") :
             this.Guild.CreateEventAsync(name, description, this.Id, this.Type is DiscordChannelType.Stage ? DiscordScheduledGuildEventType.StageInstance : DiscordScheduledGuildEventType.VoiceChannel, privacyLevel, start, end);
 
     // Please send memes to Naamloos#2887 at discord <3 thank you
@@ -407,7 +411,7 @@ public class DiscordChannel : SnowflakeObject, IEquatable<DiscordChannel>
             mdl.Bitrate,
             mdl.Userlimit,
             mdl.PerUserRateLimit,
-            mdl.RtcRegion.IfPresent(r => r?.Id),
+            mdl.RtcRegion.IfPresent(r => r.Id),
             mdl.QualityMode,
             mdl.Type,
             mdl.PermissionOverwrites,
@@ -442,7 +446,7 @@ public class DiscordChannel : SnowflakeObject, IEquatable<DiscordChannel>
         }
 
         DiscordChannel[] chns = [.. this.Guild.channels.Values.Where(xc => xc.Type == this.Type).OrderBy(xc => xc.Position)];
-        RestGuildChannelReorderPayload[] pmds = new RestGuildChannelReorderPayload[chns.Length];
+        DiscordChannelPosition[] pmds = new DiscordChannelPosition[chns.Length];
         for (int i = 0; i < chns.Length; i++)
         {
             pmds[i] = new()
@@ -545,7 +549,7 @@ public class DiscordChannel : SnowflakeObject, IEquatable<DiscordChannel>
 
         int remaining = limit;
         ulong? last = null;
-        bool isbefore = before != null;
+        bool isbefore = before != null || (before is null && after is null && around is null);
 
         int lastCount;
         do
@@ -767,14 +771,51 @@ public class DiscordChannel : SnowflakeObject, IEquatable<DiscordChannel>
     /// <param name="targetType">The target type of the invite, for stream and embedded application invites.</param>
     /// <param name="targetUserId">The ID of the target user.</param>
     /// <param name="targetApplicationId">The ID of the target application.</param>
+    /// <param name="roleIds">The role IDs for roles given to the user when accepting the invite.</param>
+    /// <param name="targetUserIds">The user IDs of those who are able to accept this invite.</param>
     /// <returns></returns>
     /// <exception cref="UnauthorizedException">Thrown when the client does not have the 
-    /// <see cref="DiscordPermission.CreateInvite"/> permission.</exception>
+    /// <see cref="DiscordPermission.CreateInvite"/> permission or in case if roleIds are used and the client does not have the
+    /// <see cref="DiscordPermission.ManageRoles"/> permission.</exception>
     /// <exception cref="NotFoundException">Thrown when the channel does not exist.</exception>
     /// <exception cref="BadRequestException">Thrown when an invalid parameter was provided.</exception>
     /// <exception cref="ServerErrorException">Thrown when Discord is unable to process the request.</exception>
-    public async Task<DiscordInvite> CreateInviteAsync(int max_age = 86400, int max_uses = 0, bool temporary = false, bool unique = false, string reason = null, DiscordInviteTargetType? targetType = null, ulong? targetUserId = null, ulong? targetApplicationId = null)
-        => await this.Discord.ApiClient.CreateChannelInviteAsync(this.Id, max_age, max_uses, temporary, unique, reason, targetType, targetUserId, targetApplicationId);
+    public async Task<DiscordInvite> CreateInviteAsync
+    (
+        int max_age = 86400,
+        int max_uses = 0,
+        bool temporary = false,
+        bool unique = false,
+        string reason = null,
+        DiscordInviteTargetType? targetType = null,
+        ulong? targetUserId = null,
+        ulong? targetApplicationId = null,
+        IEnumerable<ulong> roleIds = null,
+        IEnumerable<ulong> targetUserIds = null
+    )
+    {
+        DiscordFile? csvFile = null;
+        if (targetUserIds is not null)
+        {
+            MemoryStream csvStream = DiscordInvite.CreateTargetUserCsvStream(targetUserIds);
+            csvFile = new DiscordFile("file", csvStream, null, "csv", "text/csv", AddFileOptions.CloseStream);
+        }
+
+        return await this.Discord.ApiClient.CreateChannelInviteAsync
+        (
+            this.Id,
+            max_age,
+            max_uses,
+            temporary,
+            unique,
+            reason,
+            targetType,
+            targetUserId,
+            targetApplicationId,
+            roleIds,
+            csvFile
+        );
+    }
 
     /// <summary>
     /// Adds a channel permission overwrite for specified member.
@@ -1161,6 +1202,71 @@ public class DiscordChannel : SnowflakeObject, IEquatable<DiscordChannel>
     }
 
     /// <summary>
+    /// Gets the status and start time of the currently active voice session, if available.
+    /// Returns <c>(null, null)</c> if there was no active voice session.
+    /// </summary>
+    public async Task<(string? status, DateTimeOffset? startTime)> GetVoiceChannelInfoAsync()
+    {
+        if (this.Discord is not DiscordClient discordClient)
+        {
+            throw new InvalidOperationException("This is not available on rest-only connections.");
+        }
+
+        if (this.Type is not DiscordChannelType.Voice and not DiscordChannelType.Stage)
+        {
+            throw new InvalidOperationException("This can only be called on voice channels.");
+        }
+
+        GatewayRequestChannelInfo request = new()
+        {
+            GuildId = this.GuildId.Value,
+            Fields = ["status", "voice_start_time"]
+        };
+
+        EventWaiter<ChannelInfoEventArgs> eventWaiter = discordClient.CreateEventWaiter<ChannelInfoEventArgs>
+        (
+            condition: (eventArgs) => eventArgs.Guild.Id == this.GuildId.Value,
+            timeout: TimeSpan.FromSeconds(100)
+        );
+
+#pragma warning disable DSP0004
+        await discordClient.SendPayloadAsync(GatewayOpCode.RequestChannelInfo, request, this.GuildId.Value);
+#pragma warning restore DSP0004
+
+        EventWaiterResult<ChannelInfoEventArgs> result = await eventWaiter.Task;
+
+        if (result.TimedOut)
+        {
+            throw new TimeoutException("The request for voice channel info timed out.");
+        }
+
+        VoiceChannelInfo? voiceChannelInfo = result.Value.ChannelInfo.FirstOrDefault(x => x.Channel.Id == this.Id);
+
+        return voiceChannelInfo is null
+            ? (null, null)
+            : (voiceChannelInfo.Status, voiceChannelInfo.StartTime);
+    }
+
+    /// <summary>
+    /// Updates the status for this voice channel. Requires the <see cref="DiscordPermission.SetVoiceChannelStatus"/>
+    /// permission, and additionally the <see cref="DiscordPermission.ManageChannels"/> permission if the current user
+    /// is not connected to the voice channel.  
+    /// </summary>
+    /// <param name="status">The new status for this voice channel, or null to clear it.</param>
+    /// <param name="reason">An optional audit log reason for this operation.</param>
+    public async Task SetVoiceChannelStatusAsync(string? status, string? reason = null)
+    {
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(status?.Length ?? 0, 500, "status.Length");
+
+        if (this.Type is not DiscordChannelType.Voice and not DiscordChannelType.Stage)
+        {
+            throw new InvalidOperationException("This can only be called on voice channels.");
+        }
+
+        await this.Discord.ApiClient.SetVoiceChannelStatusAsync(this.Id, status, reason);
+    }
+
+    /// <summary>
     /// Returns a string representation of this channel.
     /// </summary>
     /// <returns>String representation of this channel.</returns>
@@ -1285,3 +1391,5 @@ public class DiscordChannel : SnowflakeObject, IEquatable<DiscordChannel>
     public static bool operator !=(DiscordChannel e1, DiscordChannel e2)
         => !(e1 == e2);
 }
+
+

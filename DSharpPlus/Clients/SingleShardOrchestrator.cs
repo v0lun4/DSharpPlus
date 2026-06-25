@@ -1,10 +1,13 @@
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 
 using DSharpPlus.Entities;
 using DSharpPlus.Net;
 using DSharpPlus.Net.Gateway;
 using DSharpPlus.Net.Gateway.Compression;
+
+using Microsoft.Extensions.Logging;
 
 namespace DSharpPlus.Clients;
 
@@ -14,8 +17,11 @@ namespace DSharpPlus.Clients;
 public sealed class SingleShardOrchestrator : IShardOrchestrator
 {
     private readonly IGatewayClient gatewayClient;
-    private readonly DiscordApiClient apiClient;
+    private readonly DiscordRestApiClient apiClient;
     private readonly IPayloadDecompressor decompressor;
+    private readonly ILogger<IShardOrchestrator> logger;
+
+    private Task<GatewayConnectionFrame> gatewayTask;
 
     /// <summary>
     /// Creates a new instance of this type.
@@ -23,13 +29,15 @@ public sealed class SingleShardOrchestrator : IShardOrchestrator
     public SingleShardOrchestrator
     (
         IGatewayClient gatewayClient,
-        DiscordApiClient apiClient,
-        IPayloadDecompressor decompressor
+        DiscordRestApiClientFactory apiClientFactory,
+        IPayloadDecompressor decompressor,
+        ILogger<IShardOrchestrator> logger
     )
     {
         this.gatewayClient = gatewayClient;
-        this.apiClient = apiClient;
+        this.apiClient = apiClientFactory.GetCurrentApplicationClient();
         this.decompressor = decompressor;
+        this.logger = logger;
     }
 
     /// <inheritdoc/>
@@ -51,11 +59,21 @@ public sealed class SingleShardOrchestrator : IShardOrchestrator
 
         await SendOutboundEventAsync(payload, 0);
     }
-    /// <inheritdoc/>
-    public TimeSpan GetConnectionLatency(ulong guildId) => this.gatewayClient.Ping;
 
     /// <inheritdoc/>
-    public bool IsConnected(ulong guildId) => this.gatewayClient.IsConnected;
+    public TimeSpan GetConnectionLatency(ulong _) => this.gatewayClient.Ping;
+
+    /// <inheritdoc/>
+    public TimeSpan GetConnectionLatency(int _) => this.gatewayClient.Ping;
+
+    /// <inheritdoc/>
+    public IEnumerable<int> GetShardIds() => [this.gatewayClient.ShardId];
+
+    /// <inheritdoc/>
+    public bool IsConnected(ulong _) => this.gatewayClient.IsConnected;
+
+    /// <inheritdoc/>
+    public bool IsConnected(int _) => this.gatewayClient.IsConnected;
 
     /// <inheritdoc/>
     public async ValueTask ReconnectAsync() => await this.gatewayClient.ReconnectAsync();
@@ -82,7 +100,25 @@ public sealed class SingleShardOrchestrator : IShardOrchestrator
             gwuri.AddParameter("compress", this.decompressor.Name);
         }
 
-        await this.gatewayClient.ConnectAsync(gwuri.Build(), activity, status, idleSince);
+        this.gatewayTask = this.gatewayClient.ConnectAsync(gwuri.Build(), activity, status, idleSince);
+
+        _ = RunGatewayAsync();
+    }
+
+    private async Task RunGatewayAsync()
+    {
+        while (true)
+        {
+            GatewayConnectionFrame frame = await this.gatewayTask;
+
+            if (frame.DisconnectReason is GatewayDisconnectReason.UserRequested or GatewayDisconnectReason.IrrecoverableCloseCode)
+            {
+                this.logger.LogInformation("The gateway exited with disconnect reason {reason}, abandoning reconnecting.", frame.DisconnectReason);
+                break;
+            }
+
+            this.gatewayTask = this.gatewayClient.ReconnectAsync();
+        }
     }
 
     /// <inheritdoc/>

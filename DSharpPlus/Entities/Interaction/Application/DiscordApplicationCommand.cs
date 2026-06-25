@@ -134,6 +134,8 @@ public sealed partial class DiscordApplicationCommand : SnowflakeObject, IEquata
         IReadOnlyList<DiscordApplicationIntegrationType>? integrationTypes = null
     )
     {
+        List<DiscordApplicationCommandOption>? optionsList = options?.ToList();
+        
         if (type is DiscordApplicationCommandType.SlashCommand)
         {
             if (!Utilities.IsValidSlashCommandName(name))
@@ -151,20 +153,13 @@ public sealed partial class DiscordApplicationCommand : SnowflakeObject, IEquata
                 throw new ArgumentException("Slash command description cannot exceed 100 characters.", nameof(description));
             }
         }
-        else
+        else if (type is DiscordApplicationCommandType.UserContextMenu or DiscordApplicationCommandType.MessageContextMenu)
         {
-            if (!string.IsNullOrWhiteSpace(description))
-            {
-                throw new ArgumentException("Context menus do not support descriptions.");
-            }
-
-            if (options?.Any() ?? false)
+            if (optionsList?.Any() ?? false)
             {
                 throw new ArgumentException("Context menus do not support options.");
             }
         }
-
-        ReadOnlyCollection<DiscordApplicationCommandOption>? optionsList = options != null ? new ReadOnlyCollection<DiscordApplicationCommandOption>(options.ToList()) : null;
 
         this.Type = type;
         this.Name = name;

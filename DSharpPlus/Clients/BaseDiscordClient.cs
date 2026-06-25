@@ -2,11 +2,11 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using System.Threading.Tasks;
 
 using DSharpPlus.Entities;
-using DSharpPlus.Metrics;
 using DSharpPlus.Net;
 
 using Microsoft.Extensions.Logging;
@@ -18,7 +18,7 @@ namespace DSharpPlus;
 /// </summary>
 public abstract class BaseDiscordClient : IDisposable
 {
-    protected internal DiscordApiClient ApiClient { get; internal init; }
+    protected internal DiscordRestApiClient ApiClient { get; internal set; }
     protected internal DiscordConfiguration Configuration { get; internal init; }
 
     /// <summary>
@@ -75,28 +75,24 @@ public abstract class BaseDiscordClient : IDisposable
         this.UserCache = new ConcurrentDictionary<ulong, DiscordUser>();
         this.InternalVoiceRegions = new ConcurrentDictionary<string, DiscordVoiceRegion>();
         
-        Assembly a = typeof(DiscordClient).GetTypeInfo().Assembly;
+        Assembly assembly = typeof(DiscordClient).GetTypeInfo().Assembly;
 
-        AssemblyInformationalVersionAttribute? iv = a.GetCustomAttribute<AssemblyInformationalVersionAttribute>();
-        if (iv != null)
+        AssemblyInformationalVersionAttribute? versionAttribute = assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>();
+        if (versionAttribute != null)
         {
-            this.VersionString = iv.InformationalVersion;
+            this.VersionString = versionAttribute.InformationalVersion;
         }
         else
         {
-            Version? v = a.GetName().Version;
-            string vs = v.ToString(3);
+            Version? version = assembly.GetName().Version;
+            string versionString = version.ToString(3);
 
-            if (v.Revision > 0)
+            if (version.Revision > 0)
             {
-                this.VersionString = $"{vs}, CI build {v.Revision}";
+                this.VersionString = $"{versionString}, CI build {version.Revision}";
             }
         }
     }
-
-    /// <inheritdoc cref="RestClient.GetRequestMetrics(bool)"/>
-    public RequestMetricsCollection GetRequestMetrics(bool sinceLastCall = false)
-        => this.ApiClient.GetRequestMetrics(sinceLastCall);
 
     /// <summary>
     /// Gets the current API application.
@@ -104,8 +100,8 @@ public abstract class BaseDiscordClient : IDisposable
     /// <returns>Current API application.</returns>
     public async Task<DiscordApplication> GetCurrentApplicationAsync()
     {
-        Net.Abstractions.TransportApplication tapp = await this.ApiClient.GetCurrentApplicationInfoAsync();
-        return new DiscordApplication(tapp, this);
+        Net.Abstractions.TransportApplication transportApplication = await this.ApiClient.GetCurrentApplicationInfoAsync();
+        return new DiscordApplication(transportApplication, this);
     }
 
     /// <summary>
@@ -120,6 +116,7 @@ public abstract class BaseDiscordClient : IDisposable
     /// Initializes this client. This method fetches information about current user, application, and voice regions.
     /// </summary>
     /// <returns></returns>
+    [SuppressMessage("ReSharper", "ConditionIsAlwaysTrueOrFalseAccordingToNullableAPIContract")]
     public virtual async Task InitializeAsync()
     {
         if (this.CurrentUser is null)
@@ -135,10 +132,10 @@ public abstract class BaseDiscordClient : IDisposable
 
         if (this is DiscordClient && this.InternalVoiceRegions.IsEmpty)
         {
-            IReadOnlyList<DiscordVoiceRegion> vrs = await ListVoiceRegionsAsync();
-            foreach (DiscordVoiceRegion xvr in vrs)
+            IReadOnlyList<DiscordVoiceRegion> voiceRegions = await ListVoiceRegionsAsync();
+            foreach (DiscordVoiceRegion voiceRegion in voiceRegions)
             {
-                this.InternalVoiceRegions.TryAdd(xvr.Id, xvr);
+                this.InternalVoiceRegions.TryAdd(voiceRegion.Id, voiceRegion);
             }
         }
     }
@@ -150,20 +147,20 @@ public abstract class BaseDiscordClient : IDisposable
     public async Task<GatewayInfo> GetGatewayInfoAsync() 
         => await this.ApiClient.GetGatewayInfoAsync();
 
-    internal DiscordUser GetCachedOrEmptyUserInternal(ulong user_id)
+    internal DiscordUser GetCachedOrEmptyUserInternal(ulong userId)
     {
-        TryGetCachedUserInternal(user_id, out DiscordUser? user);
+        TryGetCachedUserInternal(userId, out DiscordUser? user);
         return user;
     }
 
-    internal bool TryGetCachedUserInternal(ulong user_id, out DiscordUser user)
+    internal bool TryGetCachedUserInternal(ulong userId, [NotNullWhen(true)] out DiscordUser? user)
     {
-        if (this.UserCache.TryGetValue(user_id, out user))
+        if (this.UserCache.TryGetValue(userId, out user))
         {
             return true;
         }
 
-        user = new DiscordUser { Id = user_id, Discord = this };
+        user = new DiscordUser { Id = userId, Discord = this };
         return false;
     }
 

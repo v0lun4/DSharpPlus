@@ -2,7 +2,7 @@ using System;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
-using DSharpPlus.Net.Abstractions;
+using DSharpPlus.Net.Abstractions.Rest;
 using DSharpPlus.Net.Models;
 using Newtonsoft.Json;
 
@@ -22,12 +22,8 @@ public class DiscordRole : SnowflakeObject, IEquatable<DiscordRole>
     /// <summary>
     /// Gets the color of this role.
     /// </summary>
-    [JsonIgnore]
-    public DiscordColor Color
-        => new(this.color);
-
-    [JsonProperty("color", NullValueHandling = NullValueHandling.Ignore)]
-    internal int color;
+    [JsonProperty("colors", NullValueHandling = NullValueHandling.Ignore)]
+    public DiscordRoleColors Colors { get; internal set; }
 
     /// <summary>
     /// Gets whether this role is hoisted.
@@ -83,6 +79,12 @@ public class DiscordRole : SnowflakeObject, IEquatable<DiscordRole>
     /// </summary>
     [JsonProperty("tags", NullValueHandling = NullValueHandling.Ignore)]
     public DiscordRoleTags Tags { get; internal set; }
+    
+    /// <summary>
+    /// Gets the flags this role has.
+    /// </summary>
+    [JsonProperty("flags", NullValueHandling = NullValueHandling.Ignore)]
+    public DiscordRoleFlags Flags { get; internal set; }
 
     [JsonIgnore]
     internal ulong guild_id = 0;
@@ -107,10 +109,10 @@ public class DiscordRole : SnowflakeObject, IEquatable<DiscordRole>
     public async Task ModifyPositionAsync(int position, string reason = null)
     {
         DiscordRole[] roles = [.. this.Discord.Guilds[this.guild_id].Roles.Values.OrderByDescending(xr => xr.Position)];
-        RestGuildRoleReorderPayload[] pmds = new RestGuildRoleReorderPayload[roles.Length];
+        DiscordRolePosition[] pmds = new DiscordRolePosition[roles.Length];
         for (int i = 0; i < roles.Length; i++)
         {
-            pmds[i] = new RestGuildRoleReorderPayload
+            pmds[i] = new DiscordRolePosition
             {
                 RoleId = roles[i].Id,
                 Position = roles[i].Id == this.Id ? position : roles[i].Position <= position ? roles[i].Position - 1 : roles[i].Position

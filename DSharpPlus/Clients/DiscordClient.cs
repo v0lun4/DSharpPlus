@@ -15,7 +15,7 @@ using DSharpPlus.Clients;
 using DSharpPlus.Entities;
 using DSharpPlus.EventArgs;
 using DSharpPlus.Exceptions;
-using DSharpPlus.Net;
+using DSharpPlus.Metrics;
 using DSharpPlus.Net.Abstractions;
 using DSharpPlus.Net.Gateway;
 using DSharpPlus.Net.InboundWebhooks;
@@ -47,6 +47,8 @@ public sealed partial class DiscordClient : BaseDiscordClient
     private readonly ChannelReader<DiscordWebhookEvent> webhookEventReader;
     private readonly ChannelReader<DiscordHttpInteractionPayload> interactionEventReader;
     private readonly IEventDispatcher dispatcher;
+    private readonly RestMetricsContainer restMetrics;
+    private readonly GatewayMetricsContainer gatewayMetrics;
 
     private readonly ConcurrentDictionary<Int128, Channel<GuildMembersChunkedEventArgs>> guildMembersChunkedEvents = [];
 
@@ -99,7 +101,7 @@ public sealed partial class DiscordClient : BaseDiscordClient
     public DiscordClient
     (
         ILogger<DiscordClient> logger,
-        DiscordApiClient apiClient,
+        DiscordRestApiClientFactory apiClient,
         IMessageCacheProvider messageCacheProvider,
         IServiceProvider serviceProvider,
         IEventDispatcher eventDispatcher,
@@ -108,6 +110,8 @@ public sealed partial class DiscordClient : BaseDiscordClient
         IOptions<TokenContainer> token,
         IShardOrchestrator shardOrchestrator,
         IOptions<GatewayClientOptions> gatewayOptions,
+        RestMetricsContainer restMetrics,
+        GatewayMetricsContainer gatewayMetrics,
 
         [FromKeyedServices("DSharpPlus.Gateway.EventChannel")]
         Channel<GatewayPayload> eventChannel,
@@ -123,7 +127,7 @@ public sealed partial class DiscordClient : BaseDiscordClient
         this.Logger = logger;
         this.MessageCache = messageCacheProvider;
         this.ServiceProvider = serviceProvider;
-        this.ApiClient = apiClient;
+        this.ApiClient = apiClient.GetCurrentApplicationClient();
         this.errorHandler = errorHandler;
         this.Configuration = configuration.Value;
         this.token = token.Value.GetToken();
@@ -132,6 +136,8 @@ public sealed partial class DiscordClient : BaseDiscordClient
         this.dispatcher = eventDispatcher;
         this.webhookEventReader = webhookEventChannel.Reader;
         this.interactionEventReader = interactionEventChannel.Reader;
+        this.restMetrics = restMetrics;
+        this.gatewayMetrics = gatewayMetrics;
 
         this.ApiClient.SetClient(this);
         this.Intents = gatewayOptions.Value.Intents;
@@ -167,7 +173,7 @@ public sealed partial class DiscordClient : BaseDiscordClient
         }
         else
         {
-            long? since_unix = idlesince != null ? Utilities.GetUnixTime(idlesince.Value) : null;
+            long? since_unix = idlesince?.ToUnixTimeSeconds();
             this.status = new StatusUpdate()
             {
                 Activity = new TransportActivity(activity),
@@ -230,6 +236,58 @@ public sealed partial class DiscordClient : BaseDiscordClient
     }
 
     #endregion
+
+    /// <summary>
+    /// Provides metrics collected about rest requests and their status.
+    /// </summary>
+    public RestMetricsCollection GetRestRequestMetrics()
+        => this.restMetrics.GetCollectedMetrics();
+
+    /// <summary>
+    /// Provides metrics collected from the gateway.
+    /// </summary>
+    public GatewayMetricsCollection GetGatewayMetrics()
+        => this.gatewayMetrics.GetCollectedMetrics();
+
+    /// <summary>
+    /// Creates a new event waiter for an event of the specified type.
+    /// </summary>
+    /// <param name="condition">The condition an event needs to match before it fulfils the event waiter.</param>
+    /// <param name="timeout">A timeout for this event waiter.</param>
+    public EventWaiter<T> CreateEventWaiter<T>(Func<T, bool> condition, TimeSpan timeout)
+        where T : DiscordEventArgs
+        => this.dispatcher.CreateEventWaiter(condition, timeout);
+
+    /// <summary>
+    /// Creates a new event collector for events of the specified type.
+    /// </summary>
+    /// <param name="condition">The condition events need to match before they are collected.</param>
+    /// <param name="timeout">The time events should be collected for.</param>
+    public EventCollector<T> CreateEventCollector<T>(Func<T, bool> condition, TimeSpan timeout)
+        where T : DiscordEventArgs
+        => this.dispatcher.CreateEventCollector(condition, timeout);
+
+    /// <summary>
+    /// Waits for an event matching the specified condition.
+    /// </summary>
+    /// <param name="condition">The condition an event needs to match.</param>
+    /// <param name="timeout">A timeout for this event waiter.</param>
+    public async Task<EventWaiterResult<T>> WaitForEventAsync<T>(Func<T, bool> condition, TimeSpan timeout)
+        where T : DiscordEventArgs
+    {
+        EventWaiter<T> eventWaiter = this.dispatcher.CreateEventWaiter(condition, timeout);
+        return await eventWaiter.Task;
+    }
+
+    /// <summary>
+    /// Collects events matching the specified condition over the specified time span.
+    /// </summary>
+    public async Task<IReadOnlyList<T>> CollectEventsAsync<T>(Func<T, bool> condition, TimeSpan timeout)
+        where T : DiscordEventArgs
+    {
+        EventCollector<T> eventCollector = this.dispatcher.CreateEventCollector(condition, timeout);
+        return await eventCollector.Task;
+    }
 
     #region Public REST Methods
 
@@ -460,13 +518,12 @@ public sealed partial class DiscordClient : BaseDiscordClient
     /// </summary>
     /// <param name="code">The invite code.</param>
     /// <param name="withCounts">Whether to include presence and total member counts in the returned invite.</param>
-    /// <param name="withExpiration">Whether to include the expiration date in the returned invite.</param>
     /// <returns>The requested Invite.</returns>
     /// <exception cref="Exceptions.NotFoundException">Thrown when the invite does not exists.</exception>
     /// <exception cref="Exceptions.BadRequestException">Thrown when an invalid parameter was provided.</exception>
     /// <exception cref="Exceptions.ServerErrorException">Thrown when Discord is unable to process the request.</exception>
-    public async Task<DiscordInvite> GetInviteByCodeAsync(string code, bool? withCounts = null, bool? withExpiration = null)
-        => await this.ApiClient.GetInviteAsync(code, withCounts, withExpiration);
+    public async Task<DiscordInvite> GetInviteByCodeAsync(string code, bool? withCounts = null)
+        => await this.ApiClient.GetInviteAsync(code, withCounts);
 
     /// <summary>
     /// Gets a list of connections
@@ -573,7 +630,7 @@ public sealed partial class DiscordClient : BaseDiscordClient
             bannerBase64 = null;
         }
 
-        TransportUser usr = await this.ApiClient.ModifyCurrentUserAsync(username, avatarBase64, bannerBase64);
+        DiscordUser usr = await this.ApiClient.ModifyCurrentUserAsync(username, avatarBase64, bannerBase64);
 
         this.CurrentUser.Username = usr.Username;
         this.CurrentUser.Discriminator = usr.Discriminator;
@@ -827,9 +884,21 @@ public sealed partial class DiscordClient : BaseDiscordClient
     /// Gets an emoji owned by the current application.
     /// </summary>
     /// <param name="emojiId">The ID of the emoji</param>
+    /// <param name="skipCache">Whether to skip the cache.</param>
     /// <returns>The emoji.</returns>
-    public async ValueTask<DiscordEmoji> GetApplicationEmojiAsync(ulong emojiId)
-        => await this.ApiClient.GetApplicationEmojiAsync(this.CurrentApplication.Id, emojiId);
+    public async ValueTask<DiscordEmoji> GetApplicationEmojiAsync(ulong emojiId, bool skipCache = false)
+    {
+        if (!skipCache && this.CurrentApplication.ApplicationEmojis.TryGetValue(emojiId, out DiscordEmoji? emoji))
+        {
+            return emoji;
+        }
+        
+        DiscordEmoji result = await this.ApiClient.GetApplicationEmojiAsync(this.CurrentApplication.Id, emojiId);
+        
+        this.CurrentApplication.ApplicationEmojis[emojiId] = result;
+        
+        return result;
+    }
 
     /// <summary>
     /// Gets all emojis created or owned by the current application.
@@ -837,7 +906,16 @@ public sealed partial class DiscordClient : BaseDiscordClient
     /// <returns>All emojis associated with the current application.
     /// This includes emojis uploaded by the owner or members of the team the application is on, if applicable.</returns>
     public async ValueTask<IReadOnlyList<DiscordEmoji>> GetApplicationEmojisAsync()
-        => await this.ApiClient.GetApplicationEmojisAsync(this.CurrentApplication.Id);
+    {
+        IReadOnlyList<DiscordEmoji> result = await this.ApiClient.GetApplicationEmojisAsync(this.CurrentApplication.Id);
+        
+        foreach (DiscordEmoji emoji in result)
+        {
+            this.CurrentApplication.ApplicationEmojis[emoji.Id] = emoji;
+        }
+        
+        return result;
+    }
 
     /// <summary>
     /// Modifies an existing application emoji.
@@ -957,6 +1035,23 @@ public sealed partial class DiscordClient : BaseDiscordClient
         }
     }
 
+    private void CancelGuildMemberEnumeration(ulong guildId, string? nonce, TimeSpan retryAfter)
+    {
+        if (this.guildMembersChunkedEvents.Count is 0)
+        {
+            return;
+        }
+
+        Int128 code = new(guildId, (ulong)(nonce?.GetHashCode() ?? 0));
+
+        if (!this.guildMembersChunkedEvents.TryGetValue(code, out Channel<GuildMembersChunkedEventArgs>? eventChannel))
+        {
+            return;
+        }
+
+        eventChannel.Writer.Complete(new GatewayRatelimitedException(retryAfter));
+    }
+
     #region Internal Caching Methods
 
     internal DiscordThreadChannel? InternalGetCachedThread(ulong threadId)
@@ -1020,7 +1115,7 @@ public sealed partial class DiscordClient : BaseDiscordClient
         return InternalGetCachedChannel(channelId);
     }
 
-    internal DiscordGuild InternalGetCachedGuild(ulong? guildId)
+    internal DiscordGuild? InternalGetCachedGuild(ulong? guildId)
     {
         if (this.guilds != null && guildId.HasValue)
         {
@@ -1213,7 +1308,7 @@ public sealed partial class DiscordClient : BaseDiscordClient
         guild.IconHash = newGuild.IconHash;
         guild.MfaLevel = newGuild.MfaLevel;
         guild.OwnerId = newGuild.OwnerId;
-        guild.voiceRegionId = newGuild.voiceRegionId;
+        guild.VoiceRegionId = newGuild.VoiceRegionId;
         guild.SplashHash = newGuild.SplashHash;
         guild.VerificationLevel = newGuild.VerificationLevel;
         guild.WidgetEnabled = newGuild.WidgetEnabled;

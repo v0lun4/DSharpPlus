@@ -11,6 +11,12 @@ namespace DSharpPlus.Entities;
 public class DiscordInteraction : SnowflakeObject
 {
     /// <summary>
+    /// The channel context this interaction was provided during the event dispatch, if any.
+    /// </summary>
+    [JsonIgnore]
+    internal DiscordChannel? ContextChannel { get; set; }
+
+    /// <summary>
     /// Gets the response state of the interaction.
     /// </summary>
     [JsonIgnore]
@@ -63,6 +69,11 @@ public class DiscordInteraction : SnowflakeObject
             if (cachedChannel is not null)
             {
                 return cachedChannel;
+            }
+
+            if (this.ContextChannel is not null)
+            {
+                return this.ContextChannel;
             }
 
             return new DiscordDmChannel
@@ -161,7 +172,25 @@ public class DiscordInteraction : SnowflakeObject
     /// </summary>
     [JsonProperty("context", NullValueHandling = NullValueHandling.Ignore)]
     public DiscordInteractionContextType? Context { get; internal set; }
+    
+    /// <summary>
+    /// Represents the maximum allowed size per-attachment for the given interaction context.
+    /// </summary>
+    /// <remarks>
+    /// For guilds, this is MAX(guild_boost_limit, user_nitro_limit, standard_limit), and in all other contexts it is simply MAX(user_nitro_limit, standard_upload_limit)
+    /// </remarks>
+    [JsonProperty("attachment_size_limit", NullValueHandling = NullValueHandling.Ignore)]
+    public int AttachmentSizeLimit { get; internal set; }
 
+    /// <summary>
+    /// For monetized apps, any entitlements for the invoking user, representing access to premium SKUs
+    /// </summary>
+    [JsonIgnore]
+    public IReadOnlyList<DiscordEntitlement> Entitlements => this.entitlements;
+
+    [JsonProperty("entitlements")]
+    private List<DiscordEntitlement> entitlements = [];
+    
     /// <summary>
     /// Creates a response to this interaction.
     /// </summary>
@@ -179,6 +208,20 @@ public class DiscordInteraction : SnowflakeObject
             : DiscordInteractionResponseState.Replied;
 
         await this.Discord.ApiClient.CreateInteractionResponseAsync(this.Id, this.Token, type, builder);
+    }
+
+    public virtual async Task CreateResponseAsync
+    (
+        DiscordInteractionResponseType type,
+        DiscordModalBuilder builder
+    )
+    {
+        if (this.ResponseState is not DiscordInteractionResponseState.Unacknowledged)
+        {
+            throw new InvalidOperationException("A response has already been made to this interaction.");
+        }
+        
+        await this.Discord.ApiClient.CreateInteractionResponseAsync(this.Id, this.Token, type, customID: builder.CustomId, components: builder.Components, title: builder.Title);
     }
 
     /// <summary>

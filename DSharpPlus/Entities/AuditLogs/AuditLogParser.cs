@@ -1,14 +1,16 @@
 using System;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
+
 using DSharpPlus.Net.Abstractions;
 using DSharpPlus.Net.Serialization;
+
 using Microsoft.Extensions.Logging;
+
 using Newtonsoft.Json.Linq;
 
 namespace DSharpPlus.Entities.AuditLogs;
@@ -179,8 +181,8 @@ internal static class AuditLogParser
             case DiscordAuditLogActionType.Prune:
                 entry = new DiscordAuditLogPruneEntry
                 {
-                    Days = auditLogAction.Options.DeleteMemberDays,
-                    Toll = auditLogAction.Options.MembersRemoved
+                    Days = auditLogAction.Options!.DeleteMemberDays,
+                    Toll = auditLogAction.Options!.MembersRemoved
                 };
                 break;
 
@@ -281,10 +283,10 @@ internal static class AuditLogParser
 
                     if (messageEntry.Channel is not null)
                     {
-                        guild.Discord.UserCache.TryGetValue(auditLogAction.UserId, out DiscordUser? user);
+                        guild.Discord.UserCache.TryGetValue(auditLogAction.UserId.Value, out DiscordUser? user);
                         messageEntry.Target = user ?? new DiscordUser
                         {
-                            Id = auditLogAction.UserId,
+                            Id = auditLogAction.UserId.Value,
                             Discord = guild.Discord
                         };
                     }
@@ -421,8 +423,8 @@ internal static class AuditLogParser
                             .OldValue)?
                         .ToDiscordObject<DiscordApplicationCommandPermission>();
 
-                    DiscordApplicationCommandPermission? newValue = ((JObject)change
-                            .NewValue)
+                    DiscordApplicationCommandPermission? newValue = ((JObject?)change
+                            .NewValue)?
                         .ToDiscordObject<DiscordApplicationCommandPermission>();
 
                     permissionEntry.PermissionChanges = permissionEntry.PermissionChanges
@@ -451,16 +453,31 @@ internal static class AuditLogParser
                             };
                 }
 
-                autoModerationEntry.ResponsibleRule = auditLogAction.Options.RoleName;
+                autoModerationEntry.ResponsibleRule = auditLogAction.Options!.AutoModerationRuleName;
                 autoModerationEntry.Channel = guild.GetChannel(auditLogAction.Options.ChannelId);
                 autoModerationEntry.RuleTriggerType =
-                    (DiscordRuleTriggerType)int.Parse(auditLogAction.Options.AutoModerationRuleTriggerType);
+                    (DiscordRuleTriggerType)int.Parse(auditLogAction.Options!.AutoModerationRuleTriggerType);
                 break;
 
             case DiscordAuditLogActionType.AutoModerationRuleCreate:
             case DiscordAuditLogActionType.AutoModerationRuleUpdate:
             case DiscordAuditLogActionType.AutoModerationRuleDelete:
                 entry = ParseAutoModerationRuleUpdateEntry(guild, auditLogAction);
+                break;
+
+            case DiscordAuditLogActionType.VoiceChannelStatusUpdate:
+            case DiscordAuditLogActionType.VoiceChannelStatusDelete:
+
+                entry = new DiscordAuditLogVoiceChannelStatusEntry();
+                DiscordAuditLogVoiceChannelStatusEntry voiceChannelStatusEntry =
+                    (DiscordAuditLogVoiceChannelStatusEntry)entry;
+
+                voiceChannelStatusEntry.Status = auditLogAction.Options.Status is not null
+                    ? new()
+                    : PropertyChange<string?>.From(null, auditLogAction.Options.Status);
+
+                voiceChannelStatusEntry.Target = guild.GetChannel(auditLogAction.Options.ChannelId);
+
                 break;
 
             default:
@@ -485,14 +502,16 @@ internal static class AuditLogParser
                 or DiscordAuditLogActionType.OverwriteCreate or DiscordAuditLogActionType.RoleCreate
                 or DiscordAuditLogActionType.WebhookCreate or DiscordAuditLogActionType.IntegrationCreate
                 or DiscordAuditLogActionType.StickerCreate
-                or DiscordAuditLogActionType.AutoModerationRuleCreate => DiscordAuditLogActionCategory.Create,
+                or DiscordAuditLogActionType.AutoModerationRuleCreate
+                or DiscordAuditLogActionType.VoiceChannelStatusUpdate => DiscordAuditLogActionCategory.Create,
 
             DiscordAuditLogActionType.ChannelDelete or DiscordAuditLogActionType.EmojiDelete or DiscordAuditLogActionType.InviteDelete
                 or DiscordAuditLogActionType.MessageDelete or DiscordAuditLogActionType.MessageBulkDelete
                 or DiscordAuditLogActionType.OverwriteDelete or DiscordAuditLogActionType.RoleDelete
                 or DiscordAuditLogActionType.WebhookDelete or DiscordAuditLogActionType.IntegrationDelete
                 or DiscordAuditLogActionType.StickerDelete
-                or DiscordAuditLogActionType.AutoModerationRuleDelete => DiscordAuditLogActionCategory.Delete,
+                or DiscordAuditLogActionType.AutoModerationRuleDelete
+                or DiscordAuditLogActionType.VoiceChannelStatusDelete => DiscordAuditLogActionCategory.Delete,
 
             DiscordAuditLogActionType.ChannelUpdate or DiscordAuditLogActionType.EmojiUpdate or DiscordAuditLogActionType.InviteUpdate
                 or DiscordAuditLogActionType.MemberRoleUpdate or DiscordAuditLogActionType.MemberUpdate
@@ -507,11 +526,14 @@ internal static class AuditLogParser
         entry.Reason = auditLogAction.Reason;
         entry.Discord = guild.Discord;
 
-        entry.UserResponsible = members.TryGetValue(auditLogAction.UserId, out DiscordMember? member)
-            ? member
-            : guild.Discord.UserCache.TryGetValue(auditLogAction.UserId, out DiscordUser? discordUser)
-                ? discordUser
-                : new DiscordUser { Id = auditLogAction.UserId, Discord = guild.Discord };
+        if (auditLogAction.UserId.HasValue)
+        {
+            entry.UserResponsible = members.TryGetValue(auditLogAction.UserId.Value, out DiscordMember? member)
+                ? member
+                : guild.Discord.UserCache.TryGetValue(auditLogAction.UserId.Value, out DiscordUser? discordUser)
+                    ? discordUser
+                    : new DiscordUser { Id = auditLogAction.UserId.Value, Discord = guild.Discord };
+        }
 
         return entry;
     }
@@ -1006,10 +1028,10 @@ internal static class AuditLogParser
                     entry.OverwriteChange = new PropertyChange<IReadOnlyList<DiscordOverwrite>>
                     {
                         Before = olds != null
-                            ? new ReadOnlyCollection<DiscordOverwrite>(new List<DiscordOverwrite>(olds))
+                            ? olds.ToList()
                             : null,
                         After = news != null
-                            ? new ReadOnlyCollection<DiscordOverwrite>(new List<DiscordOverwrite>(news))
+                            ? news.ToList()
                             : null
                     };
                     break;
@@ -1087,13 +1109,18 @@ internal static class AuditLogParser
     internal static DiscordAuditLogOverwriteEntry ParseOverwriteEntry(DiscordGuild guild,
         AuditLogAction auditLogAction)
     {
+        DiscordChannel? channel = guild.GetChannel(auditLogAction.TargetId!.Value);
         DiscordAuditLogOverwriteEntry entry = new()
         {
-            Target = guild
-                .GetChannel(auditLogAction.TargetId!.Value)
+            Target = channel?
                 .PermissionOverwrites
                 .FirstOrDefault(xo => xo.Id == auditLogAction.Options.Id),
-            Channel = guild.GetChannel(auditLogAction.TargetId.Value)
+            Channel = channel ?? new DiscordChannel
+            {
+                Id = auditLogAction.TargetId.Value,
+                Discord = guild.Discord,
+                GuildId = guild.Id
+            }
         };
 
         foreach (AuditLogActionChange? change in auditLogAction.Changes)
@@ -1170,14 +1197,14 @@ internal static class AuditLogParser
 
                 case "$add":
                     entry.AddedRoles =
-                        new ReadOnlyCollection<DiscordRole>(change.NewValues.Select(xo => (ulong)xo["id"]!)
-                            .Select(gx => guild.roles.GetValueOrDefault(gx)!).ToList());
+                        change.NewValues.Select(xo => (ulong)xo["id"]!)
+                            .Select(gx => guild.roles.GetValueOrDefault(gx)!).ToList();
                     break;
 
                 case "$remove":
                     entry.RemovedRoles =
-                        new ReadOnlyCollection<DiscordRole>(change.NewValues.Select(xo => (ulong)xo["id"]!)
-                            .Select(x => guild.roles.GetValueOrDefault(x)!).ToList());
+                        change.NewValues.Select(xo => (ulong)xo["id"]!)
+                            .Select(x => guild.roles.GetValueOrDefault(x)!).ToList();
                     break;
 
                 default:

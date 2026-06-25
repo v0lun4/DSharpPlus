@@ -118,7 +118,7 @@ internal sealed class RestGuildMemberAddPayload : IOAuth2Payload
     public string AccessToken { get; set; }
 
     [JsonProperty("nick", NullValueHandling = NullValueHandling.Ignore)]
-    public string Nickname { get; set; }
+    public string? Nickname { get; set; }
 
     [JsonProperty("roles", NullValueHandling = NullValueHandling.Ignore)]
     public IEnumerable<ulong> Roles { get; set; }
@@ -193,30 +193,6 @@ internal sealed class RestScheduledGuildEventModifyPayload
     public Optional<string> CoverImage { get; set; }
 }
 
-internal sealed class RestGuildChannelReorderPayload
-{
-    [JsonProperty("id", NullValueHandling = NullValueHandling.Ignore)]
-    public ulong ChannelId { get; set; }
-
-    [JsonProperty("position", NullValueHandling = NullValueHandling.Ignore)]
-    public int Position { get; set; }
-
-    [JsonProperty("lock_permissions", NullValueHandling = NullValueHandling.Ignore)]
-    public bool? LockPermissions { get; set; }
-
-    [JsonProperty("parent_id", NullValueHandling = NullValueHandling.Ignore)]
-    public ulong? ParentId { get; set; }
-}
-
-internal sealed class RestGuildRoleReorderPayload
-{
-    [JsonProperty("id", NullValueHandling = NullValueHandling.Ignore)]
-    public ulong RoleId { get; set; }
-
-    [JsonProperty("position", NullValueHandling = NullValueHandling.Ignore)]
-    public int Position { get; set; }
-}
-
 internal sealed class RestGuildMemberModifyPayload
 {
     [JsonProperty("nick")]
@@ -239,6 +215,15 @@ internal sealed class RestGuildMemberModifyPayload
 
     [JsonProperty("flags")]
     public Optional<DiscordMemberFlags> MemberFlags { get; set; }
+
+    [JsonProperty("banner")]
+    public Optional<string> Banner { get; set; }
+
+    [JsonProperty("avatar")]
+    public Optional<string> Avatar { get; set; }
+
+    [JsonProperty("bio")]
+    public Optional<string> Bio { get; set; }
 }
 
 internal sealed class RestGuildRolePayload

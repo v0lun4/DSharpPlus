@@ -1,13 +1,15 @@
 using System;
 using System.Net;
 using System.Net.Http;
-using System.Text.RegularExpressions;
+using System.Net.Http.Headers;
 using System.Threading;
 using System.Threading.Tasks;
+
 using DSharpPlus.Exceptions;
 using DSharpPlus.Logging;
 using DSharpPlus.Metrics;
 
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
@@ -20,42 +22,37 @@ namespace DSharpPlus.Net;
 /// </summary>
 public sealed partial class RestClient : IDisposable
 {
-    [GeneratedRegex(":([a-z_]+)")]
-    private static partial Regex GenerateRouteArgumentRegex();
-
-    private static readonly Regex routeArgumentRegex = GenerateRouteArgumentRegex();
     private readonly HttpClient httpClient;
     private readonly ILogger logger;
     private readonly AsyncManualResetEvent globalRateLimitEvent;
     private readonly ResiliencePipeline<HttpResponseMessage> pipeline;
     private readonly RateLimitStrategy rateLimitStrategy;
-    private readonly RequestMetricsContainer metrics = new();
+    private readonly RestMetricsContainer? metrics;
+    private readonly TimeSpan timeout;
+
+    private string token;
 
     private volatile bool disposed;
 
+    [ActivatorUtilitiesConstructor]
     public RestClient
     (
         ILogger<RestClient> logger,
-        HttpClient client,
+        IHttpClientFactory clientFactory,
         IOptions<RestClientOptions> options,
-        IOptions<TokenContainer> tokenContainer
+        RestMetricsContainer metrics
     )
         : this
         (
-            client,
+            clientFactory.CreateClient("DSharpPlus.Rest.HttpClient"),
             options.Value.Timeout,
             logger,
             options.Value.MaximumRatelimitRetries,
             (int)options.Value.RatelimitRetryDelayFallback.TotalMilliseconds,
             (int)options.Value.InitialRequestTimeout.TotalMilliseconds,
             options.Value.MaximumConcurrentRestRequests
-        )
-    {
-        string token = tokenContainer.Value.GetToken();
-
-        this.httpClient.DefaultRequestHeaders.TryAddWithoutValidation("Authorization", $"Bot {token}");
-        this.httpClient.BaseAddress = new(Endpoints.BASE_URI);
-    }
+        ) 
+        => this.metrics = metrics;
 
     // This is for meta-clients, such as the webhook client
     internal RestClient
@@ -71,11 +68,7 @@ public sealed partial class RestClient : IDisposable
     {
         this.logger = logger;
         this.httpClient = client;
-
-        this.httpClient.BaseAddress = new Uri(Utilities.GetApiBaseUri());
-        this.httpClient.Timeout = timeout;
-        this.httpClient.DefaultRequestHeaders.TryAddWithoutValidation("User-Agent", Utilities.GetUserAgent());
-        this.httpClient.BaseAddress = new(Endpoints.BASE_URI);
+        this.timeout = timeout;
 
         this.globalRateLimitEvent = new AsyncManualResetEvent(true);
 
@@ -103,6 +96,9 @@ public sealed partial class RestClient : IDisposable
 
         this.pipeline = builder.Build();
     }
+
+    internal void SetToken(TokenType type, string token) 
+        => this.token = type == TokenType.Bot ? $"Bot {token}" : $"Bearer {token}";
 
     internal async ValueTask<RestResponse> ExecuteRequestAsync<TRequest>
     (
@@ -132,16 +128,20 @@ public sealed partial class RestClient : IDisposable
             context.Properties.Set(new("trace-id"), traceId);
             context.Properties.Set(new("exempt-from-all-limits"), request.IsExemptFromAllLimits);
 
+            CancellationTokenSource cts = new(this.timeout);
+
             using HttpResponseMessage response = await this.pipeline.ExecuteAsync
             (
                 async (_) =>
                 {
                     using HttpRequestMessage req = request.Build();
+                    req.Headers.TryAddWithoutValidation("Authorization", this.token);
+
                     return await this.httpClient.SendAsync
                     (
                         req,
                         HttpCompletionOption.ResponseContentRead,
-                        CancellationToken.None
+                        cts.Token
                     );
                 },
                 context
@@ -150,6 +150,8 @@ public sealed partial class RestClient : IDisposable
             ResilienceContextPool.Shared.Return(context);
 
             string content = await response.Content.ReadAsStringAsync();
+            HttpResponseHeaders headers = response.Headers;
+            HttpStatusCode statusCode = response.StatusCode;
 
             // consider logging headers too
             if (this.logger.IsEnabled(LogLevel.Trace) && RuntimeFeatures.EnableRestRequestLogging)
@@ -169,74 +171,72 @@ public sealed partial class RestClient : IDisposable
                 this.logger.LogTrace("Request {TraceId}: {Content}", traceId, anonymized);
             }
 
-            switch (response.StatusCode)
-            {
-                case HttpStatusCode.BadRequest or HttpStatusCode.MethodNotAllowed:
+            this.metrics?.RegisterRestRequestOutcome(response.StatusCode, response.Headers);
 
-                    this.metrics.RegisterBadRequest();
-                    throw new BadRequestException(request.Build(), response, content);
-
-                case HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden:
-
-                    this.metrics.RegisterForbidden();
-                    throw new UnauthorizedException(request.Build(), response, content);
-
-                case HttpStatusCode.NotFound:
-
-                    this.metrics.RegisterNotFound();
-                    throw new NotFoundException(request.Build(), response, content);
-
-                case HttpStatusCode.RequestEntityTooLarge:
-
-                    this.metrics.RegisterRequestTooLarge();
-                    throw new RequestSizeException(request.Build(), response, content);
-
-                case HttpStatusCode.TooManyRequests:
-
-                    this.metrics.RegisterRatelimitHit(response.Headers);
-                    throw new RateLimitException(request.Build(), response, content);
-
-                case HttpStatusCode.InternalServerError
-                    or HttpStatusCode.BadGateway
-                    or HttpStatusCode.ServiceUnavailable
-                    or HttpStatusCode.GatewayTimeout:
-
-                    this.metrics.RegisterServerError();
-                    throw new ServerErrorException(request.Build(), response, content);
-
-                default:
-
-                    this.metrics.RegisterSuccess();
-                    break;
-            }
-
-            return new RestResponse()
+            RestResponse returnValue = new RestResponse()
             {
                 Response = content,
-                ResponseCode = response.StatusCode
+                ResponseCode = statusCode,
+                ResponseHeaders = headers
+            };
+
+            return response.StatusCode switch
+            {
+                HttpStatusCode.BadRequest or HttpStatusCode.MethodNotAllowed => throw new BadRequestException(request.Build(), returnValue),
+
+                HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden => throw new UnauthorizedException(request.Build(), returnValue),
+
+                HttpStatusCode.NotFound => throw new NotFoundException(request.Build(), returnValue),
+
+                HttpStatusCode.RequestEntityTooLarge => throw new RequestSizeException(request.Build(), returnValue),
+
+                HttpStatusCode.TooManyRequests => throw new RateLimitException(request.Build(), returnValue),
+
+                HttpStatusCode.InternalServerError
+                    or HttpStatusCode.BadGateway
+                    or HttpStatusCode.ServiceUnavailable
+                    or HttpStatusCode.GatewayTimeout => throw new ServerErrorException(request.Build(), returnValue),
+
+                _ => returnValue
             };
         }
-        catch (Exception ex)
+        catch (DiscordException ex)
         {
-            this.logger.LogError
-            (
-                LoggerEvents.RestError,
-                ex,
-                "Request to {url} triggered an exception",
-                $"{Endpoints.BASE_URI}/{request.Url}"
-            );
+            if (ex is BadRequestException badRequest)
+            {
+                this.logger.LogWarning
+                (
+                    "Request to {url} was rejected by the Discord API:\n" +
+                    "  Error Code: {Code}\n" +
+                    "  Errors: {Errors}\n" +
+                    "  Message: {JsonMessage}\n",
+                    $"{Endpoints.BASE_URI}/{request.Url}",
+                    badRequest.Code,
+                    badRequest.Errors,
+                    badRequest.JsonMessage
+                );
+            }
+            else
+            {
+                this.logger.LogWarning
+                (
+                    LoggerEvents.RestError,
+                    "Received non-success status code {code} making a request to {url}",
+                    ex.Response.ResponseCode,
+                    $"{Endpoints.BASE_URI}/{request.Url}"
+                );
+            }
 
             throw;
+        } 
+        finally
+        {
+            if (request is MultipartRestRequest multipartRequest)
+            {
+                multipartRequest.PostprocessAddedFiles();
+            }
         }
     }
-
-    /// <summary>
-    /// Gets the request metrics, optionally since the last time they were checked.
-    /// </summary>
-    /// <param name="sinceLastCall">If set to true, this resets the counter. Lifetime metrics are unaffected.</param>
-    /// <returns>A snapshot of the rest metrics.</returns>
-    public RequestMetricsCollection GetRequestMetrics(bool sinceLastCall = false)
-        => sinceLastCall ? this.metrics.GetTemporalMetrics() : this.metrics.GetLifetimeMetrics();
 
     public void Dispose()
     {

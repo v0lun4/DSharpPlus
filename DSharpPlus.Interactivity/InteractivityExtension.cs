@@ -72,7 +72,7 @@ public class InteractivityExtension : IDisposable
     /// <param name="behaviour">What to do when the poll ends.</param>
     /// <param name="timeout">override timeout period.</param>
     /// <returns></returns>
-    public async Task<ReadOnlyCollection<PollEmoji>> DoPollAsync(DiscordMessage m, IEnumerable<DiscordEmoji> emojis, PollBehaviour? behaviour = default, TimeSpan? timeout = null)
+    public async Task<IReadOnlyList<PollEmoji>> DoPollAsync(DiscordMessage m, IEnumerable<DiscordEmoji> emojis, PollBehaviour? behaviour = default, TimeSpan? timeout = null)
     {
         if (!Utilities.HasReactionIntents(this.Client.Intents))
         {
@@ -89,7 +89,7 @@ public class InteractivityExtension : IDisposable
             await m.CreateReactionAsync(em);
         }
 
-        ReadOnlyCollection<PollEmoji> res = await this.Poller.DoPollAsync(new PollRequest(m, timeout ?? this.Config.Timeout, emojis));
+        IReadOnlyList<PollEmoji> res = await this.Poller.DoPollAsync(new PollRequest(m, timeout ?? this.Config.Timeout, emojis));
 
         PollBehaviour pollbehaviour = behaviour ?? this.Config.PollBehaviour;
         DiscordMember thismember = await m.Channel.Guild.GetMemberAsync(this.Client.CurrentUser.Id);
@@ -99,7 +99,7 @@ public class InteractivityExtension : IDisposable
             await m.DeleteAllReactionsAsync();
         }
 
-        return new ReadOnlyCollection<PollEmoji>(res.ToList());
+        return res.ToList();
     }
 
     /// <summary>
@@ -132,7 +132,7 @@ public class InteractivityExtension : IDisposable
     }
 
     /// <summary>
-    /// Waits for a modal with the specificed custom id to be submitted by the given user.
+    /// Waits for a modal with the specified custom id to be submitted by the given user.
     /// </summary>
     /// <param name="modal_id">The id of the modal to wait for. Should be unique to avoid issues.</param>
     /// <param name="user">The user to wait for the modal from.</param>
@@ -142,7 +142,7 @@ public class InteractivityExtension : IDisposable
         => WaitForModalAsync(modal_id, user, GetCancellationToken(timeoutOverride));
 
     /// <summary>
-    /// Waits for a modal with the specificed custom id to be submitted by the given user.
+    /// Waits for a modal with the specified custom id to be submitted by the given user.
     /// </summary>
     /// <param name="modal_id">The id of the modal to wait for. Should be unique to avoid issues.</param>
     /// <param name="user">The user to wait for the modal from.</param>
@@ -697,7 +697,7 @@ public class InteractivityExtension : IDisposable
     /// <param name="m">Message to collect reactions on.</param>
     /// <param name="timeoutoverride">Override timeout period.</param>
     /// <returns></returns>
-    public async Task<ReadOnlyCollection<Reaction>> CollectReactionsAsync(DiscordMessage m, TimeSpan? timeoutoverride = null)
+    public async Task<IReadOnlyList<Reaction>> CollectReactionsAsync(DiscordMessage m, TimeSpan? timeoutoverride = null)
     {
         if (!Utilities.HasReactionIntents(this.Client.Intents))
         {
@@ -705,7 +705,7 @@ public class InteractivityExtension : IDisposable
         }
 
         TimeSpan timeout = timeoutoverride ?? this.Config.Timeout;
-        ReadOnlyCollection<Reaction> collection = await this.ReactionCollector.CollectAsync(new ReactionCollectRequest(m, timeout));
+        IReadOnlyList<Reaction> collection = await this.ReactionCollector.CollectAsync(new ReactionCollectRequest(m, timeout));
 
         return collection;
     }
@@ -726,12 +726,12 @@ public class InteractivityExtension : IDisposable
         return new InteractivityResult<T>(res == null, res);
     }
 
-    public async Task<ReadOnlyCollection<T>> CollectEventArgsAsync<T>(Func<T, bool> predicate, TimeSpan? timeoutoverride = null) where T : AsyncEventArgs
+    public async Task<IReadOnlyList<T>> CollectEventArgsAsync<T>(Func<T, bool> predicate, TimeSpan? timeoutoverride = null) where T : AsyncEventArgs
     {
         TimeSpan timeout = timeoutoverride ?? this.Config.Timeout;
 
         using EventWaiter<T> waiter = new(this);
-        ReadOnlyCollection<T> res = await waiter.CollectMatchesAsync(new CollectRequest<T>(predicate, timeout));
+        IReadOnlyList<T> res = await waiter.CollectMatchesAsync(new CollectRequest<T>(predicate, timeout));
         return res;
     }
 
@@ -780,11 +780,14 @@ public class InteractivityExtension : IDisposable
         DiscordMessageBuilder builder = new DiscordMessageBuilder()
             .WithContent(pageArray[0].Content)
             .AddEmbed(pageArray[0].Embed)
-            .AddComponents(bts.ButtonArray);
+            .AddActionRowComponent(bts.ButtonArray);
 
         if (pageArray[0].Components is [..] pac)
         {
-            builder.AddComponents(pac);
+            foreach (DiscordActionRowComponent actionRow in pac)
+            {
+                builder.AddActionRowComponent(actionRow);
+            }
         }
 
         DiscordMessage message = await builder.SendAsync(channel);
@@ -968,11 +971,14 @@ public class InteractivityExtension : IDisposable
             DiscordWebhookBuilder builder = new DiscordWebhookBuilder()
                 .WithContent(pageArray[0].Content)
                 .AddEmbed(pageArray[0].Embed)
-                .AddComponents(buttonArray);
+                .AddActionRowComponent(buttonArray);
 
             if (pageArray[0].Components is [..] pageArrayComponents)
             {
-                builder.AddComponents(pageArrayComponents);
+                foreach (DiscordActionRowComponent actionRow in pageArrayComponents)
+                {
+                    builder.AddActionRowComponent(actionRow);
+                }
             }
 
             message = await interaction.EditOriginalResponseAsync(builder);
@@ -983,11 +989,14 @@ public class InteractivityExtension : IDisposable
                 .WithContent(pageArray[0].Content)
                 .AddEmbed(pageArray[0].Embed)
                 .AsEphemeral(ephemeral)
-                .AddComponents(buttonArray);
+                .AddActionRowComponent(buttonArray);
 
             if (pageArray[0].Components is [..] pageArrayComponents)
             {
-                builder.AddComponents(pageArrayComponents);
+                foreach (DiscordActionRowComponent actionRow in pageArrayComponents)
+                {
+                    builder.AddActionRowComponent(actionRow);
+                }
             }
 
             await interaction.CreateResponseAsync(DiscordInteractionResponseType.ChannelMessageWithSource, builder);

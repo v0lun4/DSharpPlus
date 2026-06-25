@@ -464,6 +464,15 @@ public sealed class EventHandlingBuilder
     }
 
     /// <summary>
+    /// Fired when a poll completes and a poll result message is created. For this event to fire you need the <see cref="DiscordIntents.GuildMessages"/> intent.
+    /// </summary>
+    public EventHandlingBuilder HandleMessagePollCompleted(Func<DiscordClient, MessagePollCompletedEventArgs, Task> handler)
+    {
+        this.Services.Configure<EventHandlerCollection>(c => c.Register(handler));
+        return this;
+    }
+
+    /// <summary>
     /// Fired when a message is updated.
     /// For this event to fire you need the <see cref="DiscordIntents.GuildMessages"/> or 
     /// <see cref="DiscordIntents.DirectMessages"/> intent.
@@ -902,6 +911,65 @@ public sealed class EventHandlingBuilder
             c => c.Register(handler)
         );
 
+        return this;
+    }
+
+    /// <summary>
+    /// Fired if a request made over the gateway got ratelimited.
+    /// </summary>
+    public EventHandlingBuilder HandleRatelimited(Func<DiscordClient, RatelimitedEventArgs, Task> handler)
+    {
+        this.Services.Configure<EventHandlerCollection>
+        (
+            c => c.Register(handler)
+        );
+
+        return this;
+    }
+
+    /// <summary>
+    /// Fired in response to voice channel info being requested over the gateway.
+    /// </summary>
+    public EventHandlingBuilder HandleChannelInfo(Func<DiscordClient, ChannelInfoEventArgs, Task> handler)
+    {
+        this.Services.Configure<EventHandlerCollection>(c => c.Register(handler));
+        return this;
+    }
+
+    /// <summary>
+    /// Fired when the status of a voice channel was updated.
+    /// </summary>
+    public EventHandlingBuilder HandleVoiceChannelStatusUpdated(Func<DiscordClient, VoiceChannelStatusUpdatedEventArgs, Task> handler)
+    {
+        this.Services.Configure<EventHandlerCollection>(c => c.Register(handler));
+        return this;
+    }
+
+    /// <summary>
+    /// Fired when the start time of a voice channel was updated.
+    /// </summary>
+    public EventHandlingBuilder HandleVoiceChannelStartTimeUpdated(Func<DiscordClient, VoiceChannelStartTimeUpdatedEventArgs, Task> handler)
+    {
+        this.Services.Configure<EventHandlerCollection>(c => c.Register(handler));
+        return this;
+    }
+
+    /// <summary>
+    /// Fired when the client initially starts up. This is only safe for initializing state in user code; DSharpPlus might not yet have anything
+    /// initialized at this point. Calling methods on <see cref="DiscordClient"/> that don't translate to trivial rest calls is unsafe.
+    /// </summary>
+    public EventHandlingBuilder HandleClientStarted(Func<DiscordClient, ClientStartedEventArgs, Task> handler)
+    {
+        this.Services.Configure<EventHandlerCollection>(c => c.Register(handler));
+        return this;
+    }
+
+    /// <summary>
+    /// Fired when the client shuts down.
+    /// </summary>
+    public EventHandlingBuilder HandleClientStopped(Func<DiscordClient, ClientStoppedEventArgs, Task> handler)
+    {
+        this.Services.Configure<EventHandlerCollection>(c => c.Register(handler));
         return this;
     }
 }

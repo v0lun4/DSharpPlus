@@ -23,6 +23,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using CommunityToolkit.HighPerformance.Buffers;
@@ -62,7 +63,7 @@ internal readonly record struct MultipartRestRequest : IRestRequest
     /// <summary>
     /// Gets the dictionary of files attached to this request.
     /// </summary>
-    public IReadOnlyList<DiscordMessageFile> Files { get; init; }
+    public IReadOnlyDictionary<string, DiscordFile> Files { get; init; }
 
     /// <inheritdoc/>
     public bool IsExemptFromAllLimits { get; init; }
@@ -100,9 +101,9 @@ internal readonly record struct MultipartRestRequest : IRestRequest
 
         if (this.Files is not null)
         {
-            for (int i = 0; i < this.Files.Count; i++)
+            foreach (KeyValuePair<string, DiscordFile> currentFile in this.Files)
             {
-                DiscordMessageFile current = this.Files[i];
+                DiscordFile current = currentFile.Value;
 
                 ArrayPoolBufferWriter<byte> writer;
 
@@ -124,7 +125,7 @@ internal readonly record struct MultipartRestRequest : IRestRequest
                 ByteArrayContent file = new(writer.WrittenSpan.ToArray());
 
                 writer.Dispose();
-                
+
                 if (current.ContentType is not null)
                 {
                     file.Headers.ContentType = MediaTypeHeaderValue.Parse(current.ContentType);
@@ -134,21 +135,34 @@ internal readonly record struct MultipartRestRequest : IRestRequest
                     ? current.FileName
                     : $"{current.FileName}.{current.FileType}";
 
-                // do we actually need this distinction? it's been made since the beginning of time,
-                // but it doesn't seem very necessary
-                if (this.Files.Count > 1)
-                {
-                    content.Add(file, $"file{i + 1}", filename);
-                }
-                else
-                {
-                    content.Add(file, "file", filename);
-                }
+                content.Add(file, currentFile.Key, filename);
             }
         }
 
         request.Content = content;
 
         return request;
+    }
+
+    public void PostprocessAddedFiles()
+    {
+        foreach (DiscordFile file in this.Files.Values)
+        {
+            if (file.FileOptions.HasFlag(AddFileOptions.CloseStream))
+            {
+                if (file.Stream is RequestStreamWrapper wrapper)
+                {
+                    wrapper.UnderlyingStream.Dispose();
+                }
+                else
+                {
+                    file.Stream.Dispose();
+                }
+            }
+            else if (file.ResetPositionTo.HasValue)
+            {
+                file.Stream.Seek(file.ResetPositionTo!.Value, SeekOrigin.Begin);
+            }
+        }
     }
 }

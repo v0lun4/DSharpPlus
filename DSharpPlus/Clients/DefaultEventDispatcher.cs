@@ -1,10 +1,13 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 
 using DSharpPlus.EventArgs;
 
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -21,6 +24,10 @@ public sealed class DefaultEventDispatcher : IEventDispatcher, IDisposable
     private readonly EventHandlerCollection handlers;
     private readonly IClientErrorHandler errorHandler;
     private readonly ILogger<IEventDispatcher> logger;
+    private readonly IMemoryCache cache;
+    private readonly ConcurrentDictionary<Ulid, InFlightEventWaiter> inFlightWaiters;
+    private readonly ConcurrentDictionary<Ulid, InFlightEventCollector> inFlightCollectors;
+
 
     private bool disposed = false;
 
@@ -29,13 +36,81 @@ public sealed class DefaultEventDispatcher : IEventDispatcher, IDisposable
         IServiceProvider serviceProvider,
         IOptions<EventHandlerCollection> handlers,
         IClientErrorHandler errorHandler,
-        ILogger<IEventDispatcher> logger
+        ILogger<IEventDispatcher> logger,
+        IMemoryCache cache
     )
     {
         this.serviceProvider = serviceProvider;
         this.handlers = handlers.Value;
         this.errorHandler = errorHandler;
         this.logger = logger;
+        this.cache = cache;
+        this.inFlightWaiters = [];
+        this.inFlightCollectors = [];
+    }
+
+    /// <inheritdoc/>
+    public EventWaiter<T> CreateEventWaiter<T>(Func<T, bool> condition, TimeSpan timeout) 
+        where T : DiscordEventArgs
+    {
+        EventWaiter<T> waiter = new()
+        {
+            Id = Ulid.NewUlid(),
+            Condition = condition,
+            CompletionSource = new(),
+            Timeout = timeout
+        };
+
+        InFlightEventWaiter inFlight = new(waiter.Id, Unsafe.As<Func<DiscordEventArgs, bool>>(condition), typeof(T));
+        
+        this.cache.CreateEntry(waiter.Id)
+            .SetAbsoluteExpiration(timeout)
+            .SetValue(waiter)
+            .RegisterPostEvictionCallback((key, value, reason, state) =>
+            {
+                if (reason == EvictionReason.Expired)
+                {
+                    this.inFlightWaiters.Remove((Ulid)key, out _);
+                    ((EventWaiter<T>)value!).CompletionSource.SetResult(EventWaiterResult<T>.FromTimedOut());
+                }
+            })
+            .Dispose();
+
+        this.inFlightWaiters.AddOrUpdate(waiter.Id, inFlight, (_, _) => inFlight);
+
+        return waiter;
+    }
+
+    /// <inheritdoc/>
+    public EventCollector<T> CreateEventCollector<T>(Func<T, bool> condition, TimeSpan timeout)
+        where T : DiscordEventArgs
+    {
+        EventCollector<T> collector = new()
+        {
+            Id = Ulid.NewUlid(),
+            Condition = condition,
+            Timeout = timeout
+        };
+
+        InFlightEventCollector inFlight = new(collector.Id, Unsafe.As<Func<DiscordEventArgs, bool>>(condition), typeof(T));
+
+        this.cache.CreateEntry(collector.Id)
+            .SetAbsoluteExpiration(timeout)
+            .SetValue(collector)
+            .RegisterPostEvictionCallback((key, value, reason, state) =>
+            {
+                if (reason == EvictionReason.Expired)
+                {
+                    this.inFlightCollectors.Remove((Ulid)key, out _);
+                    EventCollector<T> retrieved = (EventCollector<T>)value!;
+                    retrieved.CompletionSource.SetResult(retrieved.CollectedEvents.ToArray());
+                }
+            })
+            .Dispose();
+
+        this.inFlightCollectors.AddOrUpdate(collector.Id, inFlight, (_, _) => inFlight);
+
+        return collector;
     }
 
     /// <inheritdoc/>
@@ -46,6 +121,51 @@ public sealed class DefaultEventDispatcher : IEventDispatcher, IDisposable
         {
             return ValueTask.CompletedTask;
         }
+
+        _ = Parallel.ForEachAsync(this.inFlightWaiters.Values, (waiter, ct) =>
+        {
+            if (waiter.EventType != typeof(T))
+            {
+                return ValueTask.CompletedTask;
+            }
+
+            if (!waiter.Condition(eventArgs))
+            {
+                return ValueTask.CompletedTask;
+            }
+
+            EventWaiter<T>? fullWaiter = this.cache.Get<EventWaiter<T>>(waiter.Id);
+
+            fullWaiter?.CompletionSource.SetResult(new()
+            {
+                TimedOut = false,
+                Value = eventArgs
+            });
+
+            this.inFlightWaiters.Remove(waiter.Id, out _);
+            this.cache.Remove(waiter.Id);
+
+            return ValueTask.CompletedTask;
+        });
+
+        _ = Parallel.ForEachAsync(this.inFlightCollectors.Values, (collector, ct) =>
+        {
+            if (collector.EventType != typeof(T))
+            {
+                return ValueTask.CompletedTask;
+            }
+
+            if (!collector.Condition(eventArgs))
+            {
+                return ValueTask.CompletedTask;
+            }
+
+            EventCollector<T>? fullCollector = this.cache.Get<EventCollector<T>>(collector.Id);
+
+            fullCollector?.CollectedEvents.Add(eventArgs);
+
+            return ValueTask.CompletedTask;
+        });
 
         IReadOnlyList<object> general = this.handlers[typeof(DiscordEventArgs)];
         IReadOnlyList<object> specific = this.handlers[typeof(T)];
@@ -95,4 +215,8 @@ public sealed class DefaultEventDispatcher : IEventDispatcher, IDisposable
         this.logger.LogInformation("Detecting shutdown. All further incoming or enqueued events will not dispatch.");
         this.disposed = true;
     }
+
+    private readonly record struct InFlightEventWaiter(Ulid Id, Func<DiscordEventArgs, bool> Condition, Type EventType);
+
+    private readonly record struct InFlightEventCollector(Ulid Id, Func<DiscordEventArgs, bool> Condition, Type EventType);
 }

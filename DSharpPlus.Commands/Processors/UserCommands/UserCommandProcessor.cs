@@ -89,10 +89,21 @@ public sealed class UserCommandProcessor : ICommandProcessor
             }
 
             this.commands.Add(command);
-            applicationCommands.Add(await ToApplicationCommandAsync(command));
+
+            if (command.GuildIds.Count == 0)
+            {
+                applicationCommands.Add(await ToApplicationCommandAsync(command));
+                continue;
+            }
+
+            DiscordApplicationCommand applicationCommand = await ToApplicationCommandAsync(command);
+            foreach (ulong guildId in command.GuildIds)
+            {
+                this.slashCommandProcessor.AddGuildApplicationCommand(guildId, applicationCommand);
+            }
         }
 
-        this.slashCommandProcessor.AddApplicationCommands(applicationCommands);
+        this.slashCommandProcessor.AddGlobalApplicationCommands(applicationCommands);
     }
 
     public async Task ExecuteInteractionAsync(DiscordClient client, ContextMenuInteractionCreatedEventArgs eventArgs)
@@ -174,7 +185,7 @@ public sealed class UserCommandProcessor : ICommandProcessor
         IReadOnlyDictionary<string, string> nameLocalizations = FrozenDictionary<string, string>.Empty;
         if (command.Attributes.OfType<InteractionLocalizerAttribute>().FirstOrDefault() is InteractionLocalizerAttribute localizerAttribute)
         {
-            nameLocalizations = await this.slashCommandProcessor.ExecuteLocalizerAsync(localizerAttribute.LocalizerType, $"{command.FullName}.name");
+            nameLocalizations = await SlashCommandProcessor.ExecuteLocalizerAsync(localizerAttribute.LocalizerType, $"{command.FullName}.name", this.extension!.ServiceProvider);
         }
 
         DiscordPermissions? userPermissions = command.Attributes.OfType<RequirePermissionsAttribute>().FirstOrDefault()?.UserPermissions;
